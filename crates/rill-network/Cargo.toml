@@ -1,0 +1,22 @@
+[package]
+name = "rill-network"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "P2P networking layer for Rill (libp2p)"
+
+[dependencies]
+rill-core = { path = "../rill-core" }
+rill-consensus = { path = "../rill-consensus" }
+libp2p.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
+bytes.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
