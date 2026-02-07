@@ -1,0 +1,26 @@
+[package]
+name = "rill-wallet"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "HD wallet with decay-aware coin selection for Rill"
+
+[dependencies]
+rill-core = { path = "../rill-core" }
+rill-decay = { path = "../rill-decay" }
+ed25519-dalek.workspace = true
+aes-gcm.workspace = true
+blake3.workspace = true
+bincode.workspace = true
+hex.workspace = true
+zeroize.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+sha2.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
