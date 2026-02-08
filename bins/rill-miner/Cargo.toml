@@ -1,0 +1,23 @@
+[package]
+name = "rill-miner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rill-miner"
+path = "src/main.rs"
+
+[dependencies]
+rill-core = { path = "../../crates/rill-core" }
+rill-consensus = { path = "../../crates/rill-consensus" }
+anyhow.workspace = true
+clap.workspace = true
+jsonrpsee = { workspace = true, features = ["http-client"] }
+serde.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+hex.workspace = true
+bincode.workspace = true

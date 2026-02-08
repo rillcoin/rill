@@ -1,0 +1,30 @@
+:root {
+  /* Colors */
+  --rill-dark-navy: #0A1628;
+  --rill-deep-water: #1A3A5C;
+  --rill-flowing-blue: #3B82F6;
+  --rill-accent-orange: #F97316;
+  --rill-white: #FFFFFF;
+  --rill-light-gray: #94A3B8;
+
+  /* Typography */
+  --rill-font-headline: 'Instrument Serif', serif;
+  --rill-font-body: 'Inter', sans-serif;
+  --rill-font-code: 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --rill-space-xs: 4px;
+  --rill-space-sm: 8px;
+  --rill-space-md: 16px;
+  --rill-space-lg: 24px;
+  --rill-space-xl: 32px;
+  --rill-space-2xl: 48px;
+  --rill-space-3xl: 64px;
+  --rill-space-4xl: 96px;
+
+  /* Radius */
+  --rill-radius-sm: 4px;
+  --rill-radius-md: 8px;
+  --rill-radius-lg: 16px;
+  --rill-radius-full: 9999px;
+}

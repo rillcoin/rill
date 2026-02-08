@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "WebSearch",
+      "Bash(gh auth status:*)",
+      "Bash(wc:*)",
+      "Bash(cd:*)",
+      "Bash(timeout 3s:*)",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}

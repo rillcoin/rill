@@ -133,7 +133,7 @@ impl Wallet {
         let mut effective: u64 = 0;
         let mut decay: u64 = 0;
 
-        for (_outpoint, entry) in &self.utxos {
+        for entry in self.utxos.values() {
             let val = entry.output.value;
             let blocks_held = height.saturating_sub(entry.block_height);
 

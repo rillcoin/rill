@@ -1,0 +1,23 @@
+[package]
+name = "rill-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rill-cli"
+path = "src/main.rs"
+
+[dependencies]
+rill-wallet = { path = "../../crates/rill-wallet" }
+rill-core = { path = "../../crates/rill-core" }
+tokio.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+dirs.workspace = true
+rpassword.workspace = true
+jsonrpsee = { workspace = true, features = ["client-core", "http-client"] }
+hex.workspace = true

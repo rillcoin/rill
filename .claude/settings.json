@@ -1,0 +1,10 @@
+{
+  "deny": [
+    "wrangler",
+    "vercel",
+    "polar",
+    "supabase",
+    "aws s3",
+    "aws sts"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(wrangler *)","Bash(aws *)","Bash(supabase *)","Bash(npx supabase *)",
+      "Bash(cd *subtone*)","Bash(cd *renewly*)","Bash(cat *subtone*)","Bash(cat *renewly*)",
+      "Bash(ls *subtone*)","Bash(ls *renewly*)","Bash(vercel link*)","Bash(vercel env*)",
+      "Bash(polar *)","Bash(resend *)"
+    ],
+    "allow": [
+      "Bash(cargo *)","Bash(rustup *)","Bash(rustc *)","Bash(git *)","Bash(docker *)","Bash(docker-compose *)",
+      "Bash(python3 *)","Bash(pip3 *)","Bash(npm *)","Bash(node *)",
+      "Bash(cat *)","Bash(ls *)","Bash(find *)","Bash(grep *)",
+      "Bash(mkdir *)","Bash(cp *)","Bash(mv *)","Bash(rm *)","Bash(touch *)","Bash(chmod *)",
+      "Bash(curl *)","Bash(brew *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type":"command","command":"bash .claude/verify-project.sh --silent"}
+        ]
+      }
+    ]
+  }
+}

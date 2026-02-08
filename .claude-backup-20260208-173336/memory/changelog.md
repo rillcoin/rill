@@ -1,4 +1,20 @@
 # Changelog
+## 2026-02-08
+- Implemented bins/rill-node: Full node binary with CLI
+  - Complete CLI argument parsing (clap): data-dir, RPC bind/port, P2P listen/port, bootstrap peers, log level, no-network mode
+  - Structured logging with tracing-subscriber and env-filter support
+  - Node initialization with genesis auto-connection
+  - RPC server startup on configured address (default 127.0.0.1:18332)
+  - P2P networking integration with configurable listen address and bootstrap peers
+  - Event loop for processing network events (blocks, transactions, peer connections)
+  - Graceful shutdown handling via Ctrl+C (SIGINT)
+  - Data directory auto-creation
+  - Chain tip logging at startup
+  - 184 lines of production-ready code
+  - Updated Cargo.toml: added tokio signal feature, clap derive, tracing-subscriber env-filter, hex
+  - All 699 workspace tests still passing, zero warnings
+  - Binary compiles and runs successfully
+
 ## 2026-02-07
 - Implemented rill-wallet crate: HD wallet with decay-aware coin selection
   - 6 modules: error, keys, coin_selection, encryption, builder, wallet

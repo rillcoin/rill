@@ -1,0 +1,17 @@
+/target
+**/*.rs.bk
+*.pdb
+.env
+.envrc
+.DS_Store
+.claude/memory/sessions/
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+/data/
+/testnet-data/
+__pycache__/
+*.pyc
+.venv/

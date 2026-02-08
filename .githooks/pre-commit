@@ -1,0 +1,21 @@
+#!/bin/bash
+RED='\033[0;31m'; GREEN='\033[0;32m'; NC='\033[0m'
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(rs|toml|json|env|md|yaml|yml|py|sh)$' | grep -v '.git/')
+[[ -z "$STAGED" ]] && exit 0
+CONTAMINATED=0
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  [[ "$file" == *"CLAUDE.md"* || "$file" == *"settings.json"* || "$file" == *"verify-project"* || "$file" == *"pre-commit"* || "$file" == *".envrc"* || "$file" == *"project-isolation"* ]] && continue
+  HITS=$(grep -n -i "subtone\|subtonefm\|euuvuktmymsxrzkoulea\|r2_bucket\|wrangler\|cloudflare_api_token\|renewly\|liftymoon\|foundry-labs1\|polar_access\|resend_api\|openclaw\|bkxtxhcyabextafbudjb" "$file" 2>/dev/null)
+  if [[ -n "$HITS" ]]; then
+    echo -e "${RED}❌ Cross-project reference in $file:${NC}"
+    echo "$HITS" | head -3
+    CONTAMINATED=$((CONTAMINATED + 1))
+  fi
+done <<< "$STAGED"
+if [[ $CONTAMINATED -gt 0 ]]; then
+  echo -e "${RED}━━━ BLOCKED: $CONTAMINATED file(s) contaminated ━━━${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ Clean${NC}"
+exit 0

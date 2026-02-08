@@ -1,0 +1,65 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rill-core",
+    "crates/rill-decay",
+    "crates/rill-consensus",
+    "crates/rill-network",
+    "crates/rill-wallet",
+    "crates/rill-node",
+    "bins/rill-node",
+    "bins/rill-cli",
+    "bins/rill-miner",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rillcoin/rill"
+description = "RillCoin: A cryptocurrency with progressive concentration decay"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "2"
+sha2 = "0.10"
+blake3 = "1"
+ed25519-dalek = { version = "2", features = ["serde", "rand_core"] }
+curve25519-dalek = "4"
+bs58 = "0.5"
+hex = "0.4"
+thiserror = "2"
+anyhow = "1"
+bytes = "1"
+tokio = { version = "1", features = ["full"] }
+dashmap = "6"
+parking_lot = "0.12"
+ordered-float = "4"
+num-traits = "0.2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+libp2p = { version = "0.54", features = ["tcp","noise","yamux","gossipsub","kad","identify","mdns","dns","request-response","tokio","macros"] }
+rocksdb = "0.22"
+clap = { version = "4", features = ["derive"] }
+jsonrpsee = { version = "0.24", features = ["client", "server", "macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+config = "0.14"
+dirs = "6"
+aes-gcm = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
+mockall = "0.13"
+rand = "0.8"
+rpassword = "7"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[profile.bench]
+lto = "thin"

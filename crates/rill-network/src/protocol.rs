@@ -53,7 +53,7 @@ impl NetworkMessage {
         if data.len() < MAGIC_BYTES.len() {
             return None;
         }
-        if &data[..MAGIC_BYTES.len()] != &MAGIC_BYTES {
+        if data[..MAGIC_BYTES.len()] != MAGIC_BYTES {
             return None;
         }
         let payload = &data[MAGIC_BYTES.len()..];

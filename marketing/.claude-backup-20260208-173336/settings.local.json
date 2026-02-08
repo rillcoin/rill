@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__sequential-thinking__sequentialthinking",
+      "WebSearch",
+      "WebFetch(domain:docs.apiframe.pro)",
+      "WebFetch(domain:docs.apiframe.ai)",
+      "WebFetch(domain:vectorizer.ai)",
+      "Bash(curl -s -X POST \"https://api.apiframe.pro/imagine\" -H \"Content-Type: application/json\" -H \"Authorization: 3456412c-548a-452e-8fd9-03b24b43a651\" -d '{\n    \"\"prompt\"\": \"\"Minimal cryptocurrency logo icon, abstract flowing water streams forming letter R, clean geometric design, blue gradient on dark navy background, single mark inside circle, Stripe Linear aesthetic, vector style, flat design, no text, no shadows, professional brand identity --style raw --s 50\"\",\n    \"\"aspect_ratio\"\": \"\"1:1\"\"\n  }')",
+      "Bash(curl -s -X POST \"https://api.apiframe.pro/imagine\" -H \"Content-Type: application/json\" -H \"Authorization: 3456412c-548a-452e-8fd9-03b24b43a651\" -d '{\n    \"\"prompt\"\": \"\"Minimal cryptocurrency wordmark logo, the word RILL in clean modern sans-serif typography, small abstract water flow icon to the left, blue and cyan gradient accent, white background, Stripe Linear Vercel aesthetic, professional brand identity, vector style, flat design --style raw --s 50\"\",\n    \"\"aspect_ratio\"\": \"\"3:1\"\"\n  }')",
+      "Bash(curl:*)",
+      "Bash(open:*)",
+      "Bash(python3:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "sequential-thinking",
+    "github"
+  ]
+}

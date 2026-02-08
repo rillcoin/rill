@@ -1,0 +1,31 @@
+[package]
+name = "rill-node-lib"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Full node composition, storage, and RPC for Rill"
+
+[dependencies]
+rill-core = { path = "../rill-core" }
+rill-decay = { path = "../rill-decay" }
+rill-consensus = { path = "../rill-consensus" }
+rill-network = { path = "../rill-network" }
+rill-wallet = { path = "../rill-wallet" }
+bincode.workspace = true
+hex.workspace = true
+parking_lot.workspace = true
+rocksdb.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+jsonrpsee.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+config.workspace = true
+dirs.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

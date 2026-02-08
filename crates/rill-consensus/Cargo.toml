@@ -1,0 +1,22 @@
+[package]
+name = "rill-consensus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "RandomX PoW consensus engine for Rill"
+
+[dependencies]
+rill-core = { path = "../rill-core" }
+rill-decay = { path = "../rill-decay" }
+tokio.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion.workspace = true
+tempfile.workspace = true

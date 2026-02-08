@@ -1,0 +1,14 @@
+{
+  "deny": [
+    "cargo",
+    "rustup",
+    "rustc",
+    "wrangler",
+    "vercel",
+    "polar",
+    "supabase",
+    "aws s3",
+    "aws sts",
+    "git push"
+  ]
+}
