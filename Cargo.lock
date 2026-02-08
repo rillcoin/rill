@@ -3722,6 +3722,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rill-tests"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "rand 0.8.5",
+ "rill-consensus",
+ "rill-core",
+ "rill-decay",
+ "rill-network",
+ "rill-wallet",
+]
+
+[[package]]
 name = "rill-wallet"
 version = "0.1.0"
 dependencies = [

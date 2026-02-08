@@ -15,6 +15,10 @@ pub enum TransactionError {
     #[error("immature coinbase UTXO at input {index}")] ImmatureCoinbase { index: usize },
     #[error("zero-value output at index {0}")] ZeroValueOutput(usize),
     #[error("null outpoint in non-coinbase input {0}")] NullOutpointInRegularTx(usize),
+    #[error("too many inputs: {count} > {max}")] TooManyInputs { count: usize, max: usize },
+    #[error("too many outputs: {count} > {max}")] TooManyOutputs { count: usize, max: usize },
+    #[error("lock_time not satisfied: {lock_time} > {current}")] LocktimeNotSatisfied { lock_time: u64, current: u64 },
+    #[error("invalid transaction version: {0}")] InvalidTransactionVersion(u64),
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -34,6 +38,7 @@ pub enum BlockError {
     #[error("double spend across transactions: {0}")] DoubleSpend(String),
     #[error("invalid difficulty: got {got}, expected {expected}")] InvalidDifficulty { got: u64, expected: u64 },
     #[error("tx error in {index}: {source}")] TransactionError { index: usize, source: TransactionError },
+    #[error("invalid block version: {0}")] InvalidBlockVersion(u64),
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -47,6 +52,7 @@ pub enum DecayError {
 pub enum NetworkError {
     #[error("peer disconnected: {0}")] PeerDisconnected(String),
     #[error("message too large: {size}")] MessageTooLarge { size: usize },
+    #[error("locator too large: {size} > {max}")] LocatorTooLarge { size: usize, max: usize },
     #[error("timeout")] Timeout,
 }
 
@@ -87,6 +93,7 @@ pub enum ChainStateError {
     #[error("undo data missing for block: {0}")] UndoDataMissing(String),
     #[error("height mismatch: expected {expected}, got {got}")] HeightMismatch { expected: u64, got: u64 },
     #[error("duplicate block: {0}")] DuplicateBlock(String),
+    #[error("missing UTXO: {0}")] MissingUtxo(String),
 }
 
 #[derive(Error, Debug)]

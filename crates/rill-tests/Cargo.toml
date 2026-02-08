@@ -1,0 +1,18 @@
+[package]
+name = "rill-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Adversarial security tests for RillCoin"
+publish = false
+
+[dependencies]
+rill-core = { path = "../rill-core" }
+rill-decay = { path = "../rill-decay" }
+rill-consensus = { path = "../rill-consensus" }
+rill-network = { path = "../rill-network" }
+rill-wallet = { path = "../rill-wallet" }
+
+[dev-dependencies]
+proptest = { workspace = true }
+rand = { workspace = true }

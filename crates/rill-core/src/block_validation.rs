@@ -77,6 +77,12 @@ pub fn check_pow(block: &Block) -> bool {
 /// - Proof-of-work satisfies the header's claimed difficulty
 /// - All transactions pass structural validation
 pub fn validate_block_structure(block: &Block) -> Result<(), BlockError> {
+    // --- VULN-12 fix: Block version validation ---
+
+    if block.header.version != 1 {
+        return Err(BlockError::InvalidBlockVersion(block.header.version));
+    }
+
     // --- Must have at least one transaction (coinbase) ---
 
     if block.transactions.is_empty() {

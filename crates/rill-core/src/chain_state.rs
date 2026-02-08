@@ -153,23 +153,29 @@ impl MemoryChainStore {
     /// Process a transaction's inputs: remove spent UTXOs, record undo data.
     ///
     /// Coinbase transactions are skipped (no real inputs to spend).
-    /// Returns the number of UTXOs spent.
+    /// Returns the number of UTXOs spent, or an error if a UTXO is missing.
+    ///
+    /// VULN-02 fix: This now returns an error if any non-coinbase input's UTXO
+    /// is not found, preventing phantom spends during reorgs.
     fn spend_inputs(
         &mut self,
         tx: &Transaction,
         undo: &mut BlockUndo,
-    ) -> usize {
+    ) -> Result<usize, RillError> {
         if tx.is_coinbase() {
-            return 0;
+            return Ok(0);
         }
         let mut spent = 0;
         for input in &tx.inputs {
-            if let Some(entry) = self.utxos.remove(&input.previous_output) {
-                undo.spent_utxos.push((input.previous_output.clone(), entry));
-                spent += 1;
-            }
+            let entry = self.utxos.remove(&input.previous_output).ok_or_else(|| {
+                RillError::ChainState(ChainStateError::MissingUtxo(
+                    input.previous_output.to_string(),
+                ))
+            })?;
+            undo.spent_utxos.push((input.previous_output.clone(), entry));
+            spent += 1;
         }
-        spent
+        Ok(spent)
     }
 
     /// Process a transaction's outputs: create new UTXOs.
@@ -238,7 +244,7 @@ impl ChainStore for MemoryChainStore {
 
         // Process transactions: spend inputs, then create outputs.
         for tx in &block.transactions {
-            total_spent += self.spend_inputs(tx, &mut undo);
+            total_spent += self.spend_inputs(tx, &mut undo)?;
             total_created += self.create_outputs(tx, height)?;
         }
 

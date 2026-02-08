@@ -3,7 +3,7 @@
 //! All messages are serialized as MAGIC_BYTES prefix + bincode payload.
 //! Never JSON for consensus-adjacent data.
 
-use rill_core::constants::{MAGIC_BYTES, MAX_BLOCK_SIZE};
+use rill_core::constants::{MAGIC_BYTES, MAX_BLOCK_SIZE, MAX_LOCATOR_SIZE};
 use rill_core::error::NetworkError;
 use rill_core::types::{Block, Hash256, Transaction};
 
@@ -30,10 +30,27 @@ pub enum NetworkMessage {
 }
 
 impl NetworkMessage {
+    /// Validate message constraints before encoding or after decoding.
+    ///
+    /// VULN-10 fix: Enforces MAX_LOCATOR_SIZE for GetHeaders messages.
+    pub fn validate(&self) -> Result<(), NetworkError> {
+        if let NetworkMessage::GetHeaders(locator) = self {
+            if locator.len() > MAX_LOCATOR_SIZE {
+                return Err(NetworkError::LocatorTooLarge {
+                    size: locator.len(),
+                    max: MAX_LOCATOR_SIZE,
+                });
+            }
+        }
+        Ok(())
+    }
+
     /// Encode this message as MAGIC_BYTES + bincode payload.
     ///
-    /// Returns an error if the encoded size exceeds [`MAX_MESSAGE_SIZE`].
+    /// Returns an error if the encoded size exceeds [`MAX_MESSAGE_SIZE`]
+    /// or message validation fails.
     pub fn encode(&self) -> Result<Vec<u8>, NetworkError> {
+        self.validate()?;
         let payload = bincode::encode_to_vec(self, bincode::config::standard())
             .map_err(|e| NetworkError::PeerDisconnected(format!("encode error: {e}")))?;
         let total_size = MAGIC_BYTES.len() + payload.len();
@@ -48,8 +65,13 @@ impl NetworkMessage {
 
     /// Decode a message from MAGIC_BYTES + bincode payload.
     ///
-    /// Returns `None` if the magic bytes don't match or deserialization fails.
+    /// Returns `None` if the magic bytes don't match, the message is too large,
+    /// deserialization fails, or message validation fails.
     pub fn decode(data: &[u8]) -> Option<Self> {
+        // VULN-04 fix: Check size limit before attempting deserialization
+        if data.len() > MAX_MESSAGE_SIZE {
+            return None;
+        }
         if data.len() < MAGIC_BYTES.len() {
             return None;
         }
@@ -59,6 +81,8 @@ impl NetworkMessage {
         let payload = &data[MAGIC_BYTES.len()..];
         let (msg, _): (Self, usize) =
             bincode::decode_from_slice(payload, bincode::config::standard()).ok()?;
+        // VULN-10 fix: Validate message after decoding
+        msg.validate().ok()?;
         Some(msg)
     }
 

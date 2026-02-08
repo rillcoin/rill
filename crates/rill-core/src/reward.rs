@@ -51,8 +51,10 @@ pub fn halving_epoch(height: u64) -> u64 {
 }
 
 /// The first block height of a given halving epoch.
+///
+/// VULN-06 fix: Uses saturating_mul to prevent overflow for large epoch values.
 pub fn epoch_start_height(epoch: u64) -> u64 {
-    epoch * HALVING_INTERVAL
+    epoch.saturating_mul(HALVING_INTERVAL)
 }
 
 /// The height at which the next halving occurs after `height`.
@@ -97,9 +99,9 @@ pub fn cumulative_reward(height: u64) -> u64 {
             epoch_start_height(epoch + 1) - 1
         };
         let blocks = end - start + 1;
-        // Safe from overflow: max product is INITIAL_REWARD * HALVING_INTERVAL
-        // = 5e9 * 210_000 = 1.05e15, well within u64.
-        total += reward * blocks;
+        // VULN-06 fix: Use saturating_add to prevent overflow in pathological cases.
+        // For current constants this is safe, but defensive programming is important.
+        total = total.saturating_add(reward.saturating_mul(blocks));
     }
 
     total
@@ -110,6 +112,8 @@ pub fn cumulative_reward(height: u64) -> u64 {
 /// Sum of `epoch_reward(e) * HALVING_INTERVAL` for all epochs with non-zero
 /// reward. Due to integer truncation, this is slightly less than
 /// `2 * INITIAL_REWARD * HALVING_INTERVAL` (= `MAX_SUPPLY`).
+///
+/// VULN-06 fix: Uses saturating arithmetic.
 pub fn total_mining_supply() -> u64 {
     let mut total: u64 = 0;
     for epoch in 0..64u64 {
@@ -117,7 +121,7 @@ pub fn total_mining_supply() -> u64 {
         if reward == 0 {
             break;
         }
-        total += reward * HALVING_INTERVAL;
+        total = total.saturating_add(reward.saturating_mul(HALVING_INTERVAL));
     }
     total
 }

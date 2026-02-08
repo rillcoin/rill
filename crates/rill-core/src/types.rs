@@ -136,14 +136,53 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    /// Compute the transaction ID (BLAKE3 hash of the canonical encoding).
+    /// Compute the transaction ID (BLAKE3 hash of the witness-stripped canonical form).
     ///
-    /// Uses bincode with standard config for deterministic serialization.
+    /// VULN-01 fix: The txid is computed over a canonical form that excludes
+    /// signatures and public keys to prevent malleability. This is similar to
+    /// Bitcoin's SegWit approach.
+    ///
+    /// The canonical form includes:
+    /// - version
+    /// - input outpoints (txid + index) only, no signatures/pubkeys
+    /// - outputs (value + pubkey_hash)
+    /// - lock_time
+    ///
     /// Returns an error if serialization fails.
     pub fn txid(&self) -> Result<Hash256, TransactionError> {
-        let encoded = bincode::encode_to_vec(self, bincode::config::standard())
+        // Build witness-stripped representation
+        let mut data = Vec::new();
+
+        // Version
+        let version_bytes = bincode::encode_to_vec(self.version, bincode::config::standard())
             .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-        Ok(Hash256(blake3::hash(&encoded).into()))
+        data.extend_from_slice(&version_bytes);
+
+        // Inputs (outpoints only, no signatures/pubkeys)
+        let inputs_len_bytes =
+            bincode::encode_to_vec(self.inputs.len(), bincode::config::standard())
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        data.extend_from_slice(&inputs_len_bytes);
+
+        for input in &self.inputs {
+            let outpoint_bytes =
+                bincode::encode_to_vec(&input.previous_output, bincode::config::standard())
+                    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+            data.extend_from_slice(&outpoint_bytes);
+        }
+
+        // Outputs
+        let outputs_bytes = bincode::encode_to_vec(&self.outputs, bincode::config::standard())
+            .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        data.extend_from_slice(&outputs_bytes);
+
+        // Lock time
+        let lock_time_bytes =
+            bincode::encode_to_vec(self.lock_time, bincode::config::standard())
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        data.extend_from_slice(&lock_time_bytes);
+
+        Ok(Hash256(blake3::hash(&data).into()))
     }
 
     /// Check if this is a coinbase transaction (single input with null outpoint).

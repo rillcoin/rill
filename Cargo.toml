@@ -10,6 +10,7 @@ members = [
     "bins/rill-node",
     "bins/rill-cli",
     "bins/rill-miner",
+    "crates/rill-tests",
 ]
 
 [workspace.package]
