@@ -6,11 +6,11 @@ This is the **Rill** project (RillCoin cryptocurrency). Strict isolation from ot
 
 Never reference, import, or use identifiers from these projects:
 - **Subtone/SubtoneFM**: No Supabase URLs, Cloudflare Workers, Wrangler config, R2 buckets
-- **Renewly/LiftYMoon**: No Polar, Resend, Foundry Labs, Vercel tokens
+- **Renewly**: No Stripe, Resend, Foundry Labs, Vercel tokens
 
 ## Forbidden Commands
 
-Do not run: `wrangler`, `vercel`, `polar`, `supabase`, `aws`
+Do not run: `wrangler`, `vercel`, `stripe`, `supabase`, `aws`
 
 ## Environment
 

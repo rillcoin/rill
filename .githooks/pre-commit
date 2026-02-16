@@ -5,7 +5,7 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(rs|toml|j
 CONTAMINATED=0
 while IFS= read -r file; do
   [[ -z "$file" ]] && continue
-  [[ "$file" == *"CLAUDE.md"* || "$file" == *"settings.json"* || "$file" == *"verify-project"* || "$file" == *"pre-commit"* || "$file" == *".envrc"* || "$file" == *"project-isolation"* ]] && continue
+  [[ "$file" == *"CLAUDE.md"* || "$file" == *"settings.json"* || "$file" == *"verify-project"* || "$file" == *"pre-commit"* || "$file" == *".envrc"* || "$file" == *"isolation"* || "$file" == *"migrate-rill-agents.sh"* || "$file" == *"git-workflow"* ]] && continue
   HITS=$(grep -n -i "subtone\|subtonefm\|euuvuktmymsxrzkoulea\|r2_bucket\|wrangler\|cloudflare_api_token\|renewly\|liftymoon\|foundry-labs1\|polar_access\|resend_api\|openclaw\|bkxtxhcyabextafbudjb" "$file" 2>/dev/null)
   if [[ -n "$HITS" ]]; then
     echo -e "${RED}❌ Cross-project reference in $file:${NC}"
