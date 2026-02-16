@@ -13,5 +13,5 @@ pub mod protocol;
 pub mod service;
 
 pub use config::NetworkConfig;
-pub use protocol::{NetworkMessage, BLOCKS_TOPIC, TXS_TOPIC};
+pub use protocol::{NetworkMessage, RillCodec, RillRequest, RillResponse, BLOCKS_TOPIC, REQ_RESP_PROTOCOL, TXS_TOPIC};
 pub use service::{NetworkEvent, NetworkNode};

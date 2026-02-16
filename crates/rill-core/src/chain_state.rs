@@ -103,6 +103,12 @@ pub trait ChainStore: Send + Sync {
 
     /// Whether no blocks have been connected.
     fn is_empty(&self) -> bool;
+
+    /// Iterate over all UTXOs. Used for balance queries and UTXO scanning.
+    /// Default implementation returns empty vec (override for production).
+    fn iter_utxos(&self) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        Ok(Vec::new())
+    }
 }
 
 /// In-memory chain state storage for testing.

@@ -171,6 +171,21 @@ impl Wallet {
         self.utxos.len()
     }
 
+    /// Access the keychain (for signing operations).
+    pub fn keychain(&self) -> &KeyChain {
+        &self.keychain
+    }
+
+    /// Access the keychain mutably (for address derivation).
+    pub fn keychain_mut(&mut self) -> &mut KeyChain {
+        &mut self.keychain
+    }
+
+    /// Get all owned UTXOs as a vector.
+    pub fn owned_utxos(&self) -> Vec<(OutPoint, UtxoEntry)> {
+        self.utxos.iter().map(|(op, entry)| (op.clone(), entry.clone())).collect()
+    }
+
     /// Build and sign a transaction sending to the given recipients.
     ///
     /// Returns the signed transaction ready for broadcast.

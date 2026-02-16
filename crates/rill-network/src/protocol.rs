@@ -5,7 +5,7 @@
 
 use rill_core::constants::{MAGIC_BYTES, MAX_BLOCK_SIZE, MAX_LOCATOR_SIZE};
 use rill_core::error::NetworkError;
-use rill_core::types::{Block, Hash256, Transaction};
+use rill_core::types::{Block, BlockHeader, Hash256, Transaction};
 
 /// Gossipsub topic for block propagation.
 pub const BLOCKS_TOPIC: &str = "/rill/blocks/1";
@@ -92,6 +92,143 @@ impl NetworkMessage {
             NetworkMessage::NewBlock(_) | NetworkMessage::GetBlock(_) => BLOCKS_TOPIC,
             NetworkMessage::NewTransaction(_) | NetworkMessage::GetHeaders(_) => TXS_TOPIC,
         }
+    }
+}
+
+/// Point-to-point request types for the Rill req-resp protocol.
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+pub enum RillRequest {
+    /// Request a block by its hash.
+    GetBlock(Hash256),
+    /// Request headers from locator hashes.
+    GetHeaders(Vec<Hash256>),
+}
+
+/// Point-to-point response types for the Rill req-resp protocol.
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+pub enum RillResponse {
+    /// A block response.
+    Block(Option<Block>),
+    /// Headers response.
+    Headers(Vec<BlockHeader>),
+}
+
+/// Maximum request size (hash + locator overhead).
+pub const MAX_REQUEST_SIZE: usize = 32 * 64 + 128; // 64 locator hashes + overhead
+
+/// Maximum response size (up to one full block or many headers).
+pub const MAX_RESPONSE_SIZE: usize = MAX_BLOCK_SIZE + 1024;
+
+/// Protocol name for request-response.
+pub const REQ_RESP_PROTOCOL: &str = "/rill/req-resp/1";
+
+/// Codec for Rill request-response protocol.
+/// Uses 4-byte length prefix + bincode payload.
+#[derive(Debug, Clone, Default)]
+pub struct RillCodec;
+
+#[async_trait::async_trait]
+impl libp2p::request_response::Codec for RillCodec {
+    type Protocol = libp2p::StreamProtocol;
+    type Request = RillRequest;
+    type Response = RillResponse;
+
+    async fn read_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Request>
+    where
+        T: libp2p::futures::AsyncRead + Unpin + Send,
+    {
+        use libp2p::futures::AsyncReadExt;
+        let mut len_buf = [0u8; 4];
+        io.read_exact(&mut len_buf).await?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+        if len > MAX_REQUEST_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "request too large",
+            ));
+        }
+        let mut buf = vec![0u8; len];
+        io.read_exact(&mut buf).await?;
+        let (request, _): (RillRequest, _) = bincode::decode_from_slice(&buf, bincode::config::standard())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        Ok(request)
+    }
+
+    async fn read_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Response>
+    where
+        T: libp2p::futures::AsyncRead + Unpin + Send,
+    {
+        use libp2p::futures::AsyncReadExt;
+        let mut len_buf = [0u8; 4];
+        io.read_exact(&mut len_buf).await?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+        if len > MAX_RESPONSE_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "response too large",
+            ));
+        }
+        let mut buf = vec![0u8; len];
+        io.read_exact(&mut buf).await?;
+        let (response, _): (RillResponse, _) = bincode::decode_from_slice(&buf, bincode::config::standard())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        Ok(response)
+    }
+
+    async fn write_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        req: Self::Request,
+    ) -> std::io::Result<()>
+    where
+        T: libp2p::futures::AsyncWrite + Unpin + Send,
+    {
+        use libp2p::futures::AsyncWriteExt;
+        let buf = bincode::encode_to_vec(&req, bincode::config::standard())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        if buf.len() > MAX_REQUEST_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "request too large",
+            ));
+        }
+        let len = (buf.len() as u32).to_be_bytes();
+        io.write_all(&len).await?;
+        io.write_all(&buf).await?;
+        Ok(())
+    }
+
+    async fn write_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        resp: Self::Response,
+    ) -> std::io::Result<()>
+    where
+        T: libp2p::futures::AsyncWrite + Unpin + Send,
+    {
+        use libp2p::futures::AsyncWriteExt;
+        let buf = bincode::encode_to_vec(&resp, bincode::config::standard())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        if buf.len() > MAX_RESPONSE_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "response too large",
+            ));
+        }
+        let len = (buf.len() as u32).to_be_bytes();
+        io.write_all(&len).await?;
+        io.write_all(&buf).await?;
+        Ok(())
     }
 }
 
@@ -240,5 +377,35 @@ mod tests {
         assert_eq!(BLOCKS_TOPIC, "/rill/blocks/1");
         assert_eq!(TXS_TOPIC, "/rill/txs/1");
         assert_eq!(MAX_MESSAGE_SIZE, MAX_BLOCK_SIZE + 1024);
+    }
+
+    #[test]
+    fn request_encode_decode() {
+        let req = RillRequest::GetBlock(Hash256([0xBB; 32]));
+        let encoded = bincode::encode_to_vec(&req, bincode::config::standard()).unwrap();
+        let (decoded, _): (RillRequest, _) =
+            bincode::decode_from_slice(&encoded, bincode::config::standard()).unwrap();
+        match decoded {
+            RillRequest::GetBlock(h) => assert_eq!(h, Hash256([0xBB; 32])),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn response_encode_decode() {
+        let resp = RillResponse::Block(None);
+        let encoded = bincode::encode_to_vec(&resp, bincode::config::standard()).unwrap();
+        let (decoded, _): (RillResponse, _) =
+            bincode::decode_from_slice(&encoded, bincode::config::standard()).unwrap();
+        match decoded {
+            RillResponse::Block(None) => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn codec_max_size_constants() {
+        assert!(MAX_REQUEST_SIZE > 32); // at least one hash
+        assert!(MAX_RESPONSE_SIZE >= MAX_MESSAGE_SIZE); // can fit a full block
     }
 }

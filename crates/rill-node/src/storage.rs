@@ -6,6 +6,7 @@
 //!
 //! On first open, automatically connects the genesis block.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use rocksdb::{ColumnFamilyDescriptor, Options, WriteBatch, DB};
@@ -14,6 +15,7 @@ use rill_core::chain_state::{ChainStore, ConnectBlockResult, DisconnectBlockResu
 use rill_core::error::{ChainStateError, RillError};
 use rill_core::genesis;
 use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, UtxoEntry};
+use rill_decay::cluster::determine_output_cluster;
 
 // --- Column family names ---
 
@@ -23,6 +25,7 @@ const CF_UTXOS: &str = "utxos";
 const CF_HEIGHT_INDEX: &str = "height_index";
 const CF_UNDO: &str = "undo";
 const CF_METADATA: &str = "metadata";
+const CF_CLUSTERS: &str = "clusters";
 
 /// All column family names.
 const ALL_CFS: &[&str] = &[
@@ -32,6 +35,7 @@ const ALL_CFS: &[&str] = &[
     CF_HEIGHT_INDEX,
     CF_UNDO,
     CF_METADATA,
+    CF_CLUSTERS,
 ];
 
 // --- Metadata keys ---
@@ -50,6 +54,8 @@ const META_UTXO_COUNT: &[u8] = b"utxo_count";
 struct BlockUndo {
     /// Spent UTXOs in the order they were consumed.
     spent_utxos: Vec<(OutPoint, UtxoEntry)>,
+    /// Cluster balance deltas applied during this block, for reorg reversal.
+    cluster_deltas: Vec<(Hash256, i128)>,
 }
 
 /// RocksDB-backed persistent chain state storage.
@@ -103,10 +109,19 @@ impl RocksStore {
     }
 
     /// Cluster balance for a given cluster ID.
-    ///
-    /// Phase 1: always returns 0 (cluster tracking deferred to Phase 2).
-    pub fn cluster_balance(&self, _cluster_id: &Hash256) -> Result<u64, RillError> {
-        Ok(0)
+    pub fn cluster_balance(&self, cluster_id: &Hash256) -> Result<u64, RillError> {
+        let cf = self.cf_handle(CF_CLUSTERS)?;
+        match self
+            .db
+            .get_cf(&cf, cluster_id.as_bytes())
+            .map_err(|e| RillError::Storage(e.to_string()))?
+        {
+            Some(bytes) if bytes.len() == 8 => {
+                Ok(u64::from_le_bytes(bytes.try_into().unwrap()))
+            }
+            Some(_) => Err(RillError::Storage("invalid cluster balance length".into())),
+            None => Ok(0),
+        }
     }
 
     /// Flush all in-memory buffers to disk.
@@ -235,6 +250,7 @@ impl ChainStore for RocksStore {
         // Collect spent UTXOs for undo data.
         let mut undo = BlockUndo {
             spent_utxos: Vec::new(),
+            cluster_deltas: Vec::new(),
         };
         let mut total_spent = 0;
         for tx in &block.transactions {
@@ -251,17 +267,45 @@ impl ChainStore for RocksStore {
         let cf_undo = self.cf_handle(CF_UNDO)?;
         let cf_meta = self.cf_handle(CF_METADATA)?;
 
-        // Delete spent UTXOs.
-        for (outpoint, _) in &undo.spent_utxos {
+        // Track cluster balance deltas.
+        let mut cluster_deltas: HashMap<Hash256, i128> = HashMap::new();
+
+        // Delete spent UTXOs and subtract their values from cluster balances.
+        for (outpoint, entry) in &undo.spent_utxos {
             let key = Self::encode_outpoint(outpoint)?;
             batch.delete_cf(cf_utxos, &key);
+
+            // Subtract spent UTXO value from its cluster.
+            let delta = cluster_deltas.entry(entry.cluster_id).or_insert(0);
+            *delta -= entry.output.value as i128;
         }
 
-        // Create new UTXOs.
+        // Create new UTXOs with proper cluster tracking.
+        let cf_clusters = self.cf_handle(CF_CLUSTERS)?;
         let mut total_created = 0u64;
         for tx in &block.transactions {
             let txid = tx.txid().map_err(RillError::from)?;
             let is_coinbase = tx.is_coinbase();
+
+            // Determine input cluster IDs for this transaction.
+            let input_cluster_ids: Vec<Hash256> = if is_coinbase {
+                Vec::new()
+            } else {
+                tx.inputs
+                    .iter()
+                    .filter_map(|input| {
+                        undo.spent_utxos
+                            .iter()
+                            .find(|(op, _)| op == &input.previous_output)
+                            .map(|(_, entry)| entry.cluster_id)
+                    })
+                    .collect()
+            };
+
+            // Determine the output cluster ID for this transaction.
+            let output_cluster_id = determine_output_cluster(&input_cluster_ids, &txid);
+
+            // Create UTXOs with the determined cluster ID.
             for (index, output) in tx.outputs.iter().enumerate() {
                 let outpoint = OutPoint {
                     txid,
@@ -271,15 +315,42 @@ impl ChainStore for RocksStore {
                     output: output.clone(),
                     block_height: height,
                     is_coinbase,
-                    cluster_id: Hash256::ZERO,
+                    cluster_id: output_cluster_id,
                 };
                 let key = Self::encode_outpoint(&outpoint)?;
                 let value = bincode::encode_to_vec(&entry, bincode::config::standard())
                     .map_err(|e| RillError::Storage(e.to_string()))?;
                 batch.put_cf(cf_utxos, &key, &value);
                 total_created += 1;
+
+                // Add created UTXO value to its cluster.
+                let delta = cluster_deltas.entry(output_cluster_id).or_insert(0);
+                *delta += output.value as i128;
             }
         }
+
+        // Apply cluster balance deltas.
+        for (cluster_id, delta) in &cluster_deltas {
+            let current_balance = self.cluster_balance(cluster_id)?;
+            let new_balance = if *delta >= 0 {
+                current_balance
+                    .checked_add(*delta as u64)
+                    .ok_or_else(|| RillError::Storage("cluster balance overflow".into()))?
+            } else {
+                current_balance
+                    .checked_sub((-*delta) as u64)
+                    .ok_or_else(|| RillError::Storage("cluster balance underflow".into()))?
+            };
+
+            if new_balance == 0 {
+                batch.delete_cf(cf_clusters, cluster_id.as_bytes());
+            } else {
+                batch.put_cf(cf_clusters, cluster_id.as_bytes(), new_balance.to_le_bytes());
+            }
+        }
+
+        // Store cluster deltas in undo data.
+        undo.cluster_deltas = cluster_deltas.into_iter().collect();
 
         // Store block and header.
         let block_bytes = bincode::encode_to_vec(block, bincode::config::standard())
@@ -387,6 +458,29 @@ impl ChainStore for RocksStore {
             let value = bincode::encode_to_vec(entry, bincode::config::standard())
                 .map_err(|e| RillError::Storage(e.to_string()))?;
             batch.put_cf(cf_utxos, &key, &value);
+        }
+
+        // Reverse cluster balance deltas.
+        let cf_clusters = self.cf_handle(CF_CLUSTERS)?;
+        for (cluster_id, delta) in &undo.cluster_deltas {
+            let current_balance = self.cluster_balance(cluster_id)?;
+            let new_balance = if *delta >= 0 {
+                // Original delta was positive, so subtract it now.
+                current_balance
+                    .checked_sub(*delta as u64)
+                    .ok_or_else(|| RillError::Storage("cluster balance underflow on disconnect".into()))?
+            } else {
+                // Original delta was negative, so add it back now.
+                current_balance
+                    .checked_add((-*delta) as u64)
+                    .ok_or_else(|| RillError::Storage("cluster balance overflow on disconnect".into()))?
+            };
+
+            if new_balance == 0 {
+                batch.delete_cf(cf_clusters, cluster_id.as_bytes());
+            } else {
+                batch.put_cf(cf_clusters, cluster_id.as_bytes(), new_balance.to_le_bytes());
+            }
         }
 
         // Remove undo data and height index entry.
@@ -537,6 +631,25 @@ impl ChainStore for RocksStore {
             Ok((_, hash)) => hash == Hash256::ZERO,
             Err(_) => true,
         }
+    }
+
+    fn iter_utxos(&self) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        let cf = self.cf_handle(CF_UTXOS)?;
+        let mut utxos = Vec::new();
+
+        let iter = self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start);
+        for item in iter {
+            let (key_bytes, value_bytes) = item.map_err(|e| RillError::Storage(e.to_string()))?;
+            let (outpoint, _): (OutPoint, _) =
+                bincode::decode_from_slice(&key_bytes, bincode::config::standard())
+                    .map_err(|e| RillError::Storage(e.to_string()))?;
+            let (entry, _): (UtxoEntry, _) =
+                bincode::decode_from_slice(&value_bytes, bincode::config::standard())
+                    .map_err(|e| RillError::Storage(e.to_string()))?;
+            utxos.push((outpoint, entry));
+        }
+
+        Ok(utxos)
     }
 }
 
@@ -976,11 +1089,6 @@ mod tests {
         assert_eq!(store.decay_pool_balance().unwrap(), 0);
     }
 
-    #[test]
-    fn cluster_balance_always_zero_phase1() {
-        let (store, _dir) = temp_store();
-        assert_eq!(store.cluster_balance(&Hash256([0xFF; 32])).unwrap(), 0);
-    }
 
     #[test]
     fn get_utxo_nonexistent() {
@@ -1040,5 +1148,202 @@ mod tests {
         // Block data still retrievable by hash.
         assert!(store.get_block(&hash1).unwrap().is_some());
         assert!(store.get_block_header(&hash1).unwrap().is_some());
+    }
+
+    // ------------------------------------------------------------------
+    // Cluster balance tracking (Phase 2)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn cluster_balance_tracked_on_connect() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Block 1: coinbase creates a new cluster.
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        store.connect_block(&block1, 1).unwrap();
+
+        // Coinbase creates a new cluster with ID = txid.
+        let cluster_id = cb1_txid;
+        let balance = store.cluster_balance(&cluster_id).unwrap();
+        assert_eq!(balance, 50 * COIN);
+    }
+
+    #[test]
+    fn cluster_balance_decreases_on_spend() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Block 1: coinbase creates 50 RILL cluster.
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        let cluster1 = cb1_txid;
+        assert_eq!(store.cluster_balance(&cluster1).unwrap(), 50 * COIN);
+
+        // Block 2: spend the coinbase, creating a new output of 49 RILL.
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xCC), 2);
+        let spend = make_tx(
+            &[OutPoint {
+                txid: cb1_txid,
+                index: 0,
+            }],
+            49 * COIN,
+            pkh(0xDD),
+        );
+        let block2 = make_block(hash1, 1_000_120, vec![cb2, spend]);
+        store.connect_block(&block2, 2).unwrap();
+
+        // Original cluster should now have 49 RILL (spent 50, created 49).
+        assert_eq!(store.cluster_balance(&cluster1).unwrap(), 49 * COIN);
+    }
+
+    #[test]
+    fn cluster_balance_restored_on_disconnect() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Block 1: coinbase.
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        let cluster1 = cb1_txid;
+        let initial_balance = store.cluster_balance(&cluster1).unwrap();
+        assert_eq!(initial_balance, 50 * COIN);
+
+        // Block 2: spend.
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xCC), 2);
+        let spend = make_tx(
+            &[OutPoint {
+                txid: cb1_txid,
+                index: 0,
+            }],
+            49 * COIN,
+            pkh(0xDD),
+        );
+        let block2 = make_block(hash1, 1_000_120, vec![cb2, spend]);
+        store.connect_block(&block2, 2).unwrap();
+
+        let after_spend = store.cluster_balance(&cluster1).unwrap();
+        assert_eq!(after_spend, 49 * COIN);
+
+        // Disconnect block 2.
+        store.disconnect_tip().unwrap();
+
+        // Balance should be restored.
+        let restored = store.cluster_balance(&cluster1).unwrap();
+        assert_eq!(restored, initial_balance);
+    }
+
+    #[test]
+    fn cluster_merge_tracked() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Block 1: two separate coinbase clusters.
+        let cb1a = make_coinbase_unique(30 * COIN, pkh(0xAA), 1);
+        let cb1a_txid = cb1a.txid().unwrap();
+        let cb1b = make_coinbase_unique(20 * COIN, pkh(0xBB), 101);
+        let cb1b_txid = cb1b.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1a.clone(), cb1b.clone()]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        let cluster_a = cb1a_txid;
+        let cluster_b = cb1b_txid;
+        assert_eq!(store.cluster_balance(&cluster_a).unwrap(), 30 * COIN);
+        assert_eq!(store.cluster_balance(&cluster_b).unwrap(), 20 * COIN);
+
+        // Block 2: merge both clusters into one transaction.
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xCC), 2);
+        let merge_tx = make_tx(
+            &[
+                OutPoint {
+                    txid: cb1a_txid,
+                    index: 0,
+                },
+                OutPoint {
+                    txid: cb1b_txid,
+                    index: 0,
+                },
+            ],
+            49 * COIN,
+            pkh(0xDD),
+        );
+        let merge_txid = merge_tx.txid().unwrap();
+        let block2 = make_block(hash1, 1_000_120, vec![cb2, merge_tx]);
+        store.connect_block(&block2, 2).unwrap();
+
+        // Original clusters should be spent (balance 0).
+        assert_eq!(store.cluster_balance(&cluster_a).unwrap(), 0);
+        assert_eq!(store.cluster_balance(&cluster_b).unwrap(), 0);
+
+        // New merged cluster should have the combined balance.
+        let merged_cluster = determine_output_cluster(&[cluster_a, cluster_b], &merge_txid);
+        assert_eq!(store.cluster_balance(&merged_cluster).unwrap(), 49 * COIN);
+    }
+
+    #[test]
+    fn cluster_reorg_roundtrip() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Connect 3 blocks, each with a coinbase creating a cluster.
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xCC), 2);
+        let cb2_txid = cb2.txid().unwrap();
+        let block2 = make_block(hash1, 1_000_120, vec![cb2]);
+        let hash2 = block2.header.hash();
+        store.connect_block(&block2, 2).unwrap();
+
+        let cb3 = make_coinbase_unique(50 * COIN, pkh(0xDD), 3);
+        let cb3_txid = cb3.txid().unwrap();
+        let block3 = make_block(hash2, 1_000_180, vec![cb3]);
+        store.connect_block(&block3, 3).unwrap();
+
+        let c1 = cb1_txid;
+        let c2 = cb2_txid;
+        let c3 = cb3_txid;
+
+        assert_eq!(store.cluster_balance(&c1).unwrap(), 50 * COIN);
+        assert_eq!(store.cluster_balance(&c2).unwrap(), 50 * COIN);
+        assert_eq!(store.cluster_balance(&c3).unwrap(), 50 * COIN);
+
+        // Disconnect all 3.
+        store.disconnect_tip().unwrap();
+        assert_eq!(store.cluster_balance(&c3).unwrap(), 0);
+        assert_eq!(store.cluster_balance(&c2).unwrap(), 50 * COIN);
+        assert_eq!(store.cluster_balance(&c1).unwrap(), 50 * COIN);
+
+        store.disconnect_tip().unwrap();
+        assert_eq!(store.cluster_balance(&c2).unwrap(), 0);
+        assert_eq!(store.cluster_balance(&c1).unwrap(), 50 * COIN);
+
+        store.disconnect_tip().unwrap();
+        assert_eq!(store.cluster_balance(&c1).unwrap(), 0);
+    }
+
+    #[test]
+    fn genesis_cluster_balance() {
+        let (store, _dir) = temp_store();
+        let genesis_coinbase_txid = genesis::genesis_coinbase_txid();
+
+        // Genesis coinbase creates a cluster.
+        let cluster_id = genesis_coinbase_txid;
+        let balance = store.cluster_balance(&cluster_id).unwrap();
+        assert_eq!(balance, DEV_FUND_PREMINE);
     }
 }

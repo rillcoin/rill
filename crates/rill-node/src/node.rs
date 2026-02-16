@@ -99,6 +99,10 @@ impl ChainState for NodeChainState {
 
         Ok(())
     }
+
+    fn iter_utxos(&self) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        self.storage.read().iter_utxos()
+    }
 }
 
 /// The full node, composing storage, mempool, consensus, and network.
@@ -387,6 +391,11 @@ impl Node {
         self.consensus
             .create_block_template(coinbase_pubkey_hash, timestamp)
             .map_err(RillError::from)
+    }
+
+    /// Iterate over all UTXOs (for address-based queries).
+    pub fn iter_utxos(&self) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        self.storage.read().iter_utxos()
     }
 }
 

@@ -130,6 +130,25 @@ pub struct TransactionJson {
     pub lock_time: u64,
 }
 
+/// JSON representation of a UTXO for address queries.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UtxoJson {
+    /// Transaction ID as hex.
+    pub txid: String,
+    /// Output index.
+    pub index: u64,
+    /// Value in rills.
+    pub value: u64,
+    /// Block height where this UTXO was created.
+    pub block_height: u64,
+    /// Whether this is a coinbase output.
+    pub is_coinbase: bool,
+    /// Cluster ID as hex.
+    pub cluster_id: String,
+    /// Pubkey hash as hex.
+    pub pubkey_hash: String,
+}
+
 /// Parse a 64-character hex string into a Hash256.
 pub fn parse_hash(hex_str: &str) -> Result<Hash256, ErrorObjectOwned> {
     if hex_str.len() != 64 {
@@ -206,6 +225,10 @@ pub trait RillRpc {
     /// Submits a mined block (hex-encoded bincode serialization).
     #[method(name = "submitblock")]
     async fn submit_block(&self, hex_data: String) -> Result<String, ErrorObjectOwned>;
+
+    /// Returns UTXOs owned by the given address.
+    #[method(name = "getutxosbyaddress")]
+    async fn get_utxos_by_address(&self, address: String) -> Result<Vec<UtxoJson>, ErrorObjectOwned>;
 }
 
 /// Implementation of the Rill JSON-RPC server.
@@ -443,6 +466,34 @@ impl RillRpcServer for RpcServerImpl {
         let hash = block.header.hash();
         Ok(hex::encode(hash.as_bytes()))
     }
+
+    async fn get_utxos_by_address(&self, address: String) -> Result<Vec<UtxoJson>, ErrorObjectOwned> {
+        let addr = address
+            .parse::<rill_core::address::Address>()
+            .map_err(|e| rpc_error(-5, &format!("invalid address: {e}")))?;
+        let pubkey_hash = addr.pubkey_hash();
+
+        // Get all UTXOs via iter_utxos (O(n) scan, acceptable for Phase 2)
+        let utxos = self.node.iter_utxos()
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        let mut result = Vec::new();
+        for (outpoint, entry) in utxos {
+            if entry.output.pubkey_hash == pubkey_hash {
+                result.push(UtxoJson {
+                    txid: hex::encode(outpoint.txid.as_bytes()),
+                    index: outpoint.index,
+                    value: entry.output.value,
+                    block_height: entry.block_height,
+                    is_coinbase: entry.is_coinbase,
+                    cluster_id: hex::encode(entry.cluster_id.as_bytes()),
+                    pubkey_hash: hex::encode(entry.output.pubkey_hash.as_bytes()),
+                });
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 /// Start the JSON-RPC server on the given address.
@@ -571,5 +622,23 @@ mod tests {
         let info = PeerInfoJson { connected: 3 };
         let json = serde_json::to_string(&info).unwrap();
         assert!(json.contains("\"connected\":3"));
+    }
+
+    #[test]
+    fn utxo_json_serializes() {
+        let utxo = UtxoJson {
+            txid: "aa".repeat(32),
+            index: 0,
+            value: 1_000_000_000,
+            block_height: 42,
+            is_coinbase: true,
+            cluster_id: "bb".repeat(32),
+            pubkey_hash: "cc".repeat(32),
+        };
+        let json = serde_json::to_string(&utxo).unwrap();
+        assert!(json.contains("\"index\":0"));
+        assert!(json.contains("\"value\":1000000000"));
+        assert!(json.contains("\"block_height\":42"));
+        assert!(json.contains("\"is_coinbase\":true"));
     }
 }

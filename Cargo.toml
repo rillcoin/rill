@@ -41,6 +41,7 @@ ordered-float = "4"
 num-traits = "0.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+async-trait = "0.1"
 libp2p = { version = "0.54", features = ["tcp","noise","yamux","gossipsub","kad","identify","mdns","dns","request-response","tokio","macros"] }
 rocksdb = "0.22"
 clap = { version = "4", features = ["derive"] }
@@ -49,6 +50,7 @@ chrono = { version = "0.4", features = ["serde"] }
 config = "0.14"
 dirs = "6"
 aes-gcm = "0.10"
+argon2 = "0.5"
 zeroize = { version = "1", features = ["derive"] }
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }

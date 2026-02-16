@@ -6,11 +6,12 @@
 
 use crate::behaviour::{self, RillBehaviour, PROTOCOL_VERSION};
 use crate::config::NetworkConfig;
-use crate::protocol::{NetworkMessage, BLOCKS_TOPIC, TXS_TOPIC};
+use crate::protocol::{NetworkMessage, RillCodec, RillRequest, RillResponse, BLOCKS_TOPIC, REQ_RESP_PROTOCOL, TXS_TOPIC};
 use libp2p::gossipsub::{self, IdentTopic};
 use libp2p::identity::Keypair;
 use libp2p::kad;
 use libp2p::multiaddr::Protocol;
+use libp2p::request_response;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{identify, mdns, Multiaddr, PeerId, StreamProtocol, SwarmBuilder};
 use rill_core::error::NetworkError;
@@ -18,8 +19,9 @@ use rill_core::traits::NetworkService;
 use rill_core::types::{Block, Hash256, Transaction};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// Commands sent from [`NetworkNode`] to the background swarm task.
 #[derive(Debug)]
@@ -28,6 +30,9 @@ enum Command {
     Publish { topic: String, data: Vec<u8> },
     /// Dial a remote peer address (used by connect_peer).
     Dial(Multiaddr),
+    /// Send a request-response request to a specific peer.
+    #[allow(dead_code)] // Phase 3: will be used for point-to-point sync
+    SendRequest { peer: PeerId, request: RillRequest },
     /// Shut down the swarm event loop.
     Shutdown,
 }
@@ -119,11 +124,21 @@ impl NetworkNode {
             None
         };
 
+        // Build request-response
+        let req_resp_config = request_response::Config::default()
+            .with_request_timeout(Duration::from_secs(30));
+        let req_resp = request_response::Behaviour::with_codec(
+            RillCodec,
+            [(StreamProtocol::new(REQ_RESP_PROTOCOL), request_response::ProtocolSupport::Full)],
+            req_resp_config,
+        );
+
         let behaviour = RillBehaviour {
             gossipsub,
             kademlia,
             identify,
             mdns: mdns.into(),
+            request_response: req_resp,
         };
 
         let mut swarm = SwarmBuilder::with_existing_identity(keypair)
@@ -293,6 +308,9 @@ async fn swarm_event_loop(
                             debug!("dial error: {e}");
                         }
                     }
+                    Some(Command::SendRequest { peer, request }) => {
+                        let _ = swarm.behaviour_mut().request_response.send_request(&peer, request);
+                    }
                     Some(Command::Shutdown) | None => {
                         info!("shutting down swarm event loop");
                         state.running.store(false, Ordering::Relaxed);
@@ -330,6 +348,48 @@ async fn swarm_event_loop(
                             let _ = event_tx.send(event);
                         } else {
                             debug!("failed to decode gossipsub message");
+                        }
+                    }
+
+                    SwarmEvent::Behaviour(behaviour::RillBehaviourEvent::RequestResponse(event)) => {
+                        match event {
+                            request_response::Event::Message { peer, message } => {
+                                match message {
+                                    request_response::Message::Request { request, channel, .. } => {
+                                        debug!(%peer, "received request-response request");
+                                        match &request {
+                                            RillRequest::GetBlock(hash) => {
+                                                let _ = event_tx.send(NetworkEvent::BlockRequested(*hash));
+                                            }
+                                            RillRequest::GetHeaders(locator) => {
+                                                let _ = event_tx.send(NetworkEvent::HeadersRequested(locator.clone()));
+                                            }
+                                        }
+                                        // For now, drop the channel (we don't have chain state here)
+                                        // Full response handling deferred to Phase 3
+                                        drop(channel);
+                                    }
+                                    request_response::Message::Response { response, .. } => {
+                                        debug!(%peer, "received request-response response");
+                                        match response {
+                                            RillResponse::Block(Some(block)) => {
+                                                let _ = event_tx.send(NetworkEvent::BlockReceived(block));
+                                            }
+                                            RillResponse::Headers(headers) => {
+                                                debug!(count = headers.len(), "received headers response");
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                            request_response::Event::OutboundFailure { peer, error, .. } => {
+                                warn!(%peer, %error, "outbound request failed");
+                            }
+                            request_response::Event::InboundFailure { peer, error, .. } => {
+                                warn!(%peer, %error, "inbound request failed");
+                            }
+                            request_response::Event::ResponseSent { .. } => {}
                         }
                     }
 

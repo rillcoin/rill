@@ -7,6 +7,7 @@ use crate::protocol::MAX_MESSAGE_SIZE;
 use libp2p::gossipsub;
 use libp2p::identity::Keypair;
 use libp2p::kad;
+use libp2p::request_response;
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{identify, mdns};
 use sha2::{Digest, Sha256};
@@ -29,6 +30,8 @@ pub struct RillBehaviour {
     pub identify: identify::Behaviour,
     /// Optional mDNS for local peer discovery (disabled on mainnet).
     pub mdns: libp2p::swarm::behaviour::toggle::Toggle<mdns::tokio::Behaviour>,
+    /// Request-response for point-to-point block/header sync.
+    pub request_response: request_response::Behaviour<crate::protocol::RillCodec>,
 }
 
 /// Build a gossipsub behaviour with content-addressed message IDs.

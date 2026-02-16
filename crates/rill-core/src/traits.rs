@@ -48,6 +48,12 @@ pub trait ChainState: Send + Sync {
 
     /// Validate a transaction against the current UTXO set and consensus rules.
     fn validate_transaction(&self, tx: &Transaction) -> Result<(), TransactionError>;
+
+    /// Iterate over all UTXOs. Used for balance queries and UTXO scanning.
+    /// Default implementation returns empty vec (override for production).
+    fn iter_utxos(&self) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        Ok(Vec::new())
+    }
 }
 
 /// Pure computation of decay rates and effective values.
