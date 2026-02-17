@@ -21,13 +21,28 @@
 - MIN_TX_FEE enforcement: mempool rejects transactions with fee < 1000 rills
 - 15 end-to-end integration tests: mine, spend, difficulty, decay, wallet lifecycle, security regression
 
-**Security Finding:**
-- VULN-COINBASE-TXID: Coinbase transactions at same reward level paying same address produce identical txids (height marker in witness excluded from txid). Documented as regression test `e2e_vuln_coinbase_txid_collision`.
-
 **Stats:**
 - 818 tests passing (up from 76), zero clippy warnings
 - 28 files changed, 3,289 insertions, 5 new files
 - Commit: `bfd53c2`, pushed to origin/main
+
+### 2026-02-17 - Blocker Fixes: VULN-COINBASE-TXID & Fee Computation
+
+**VULN-COINBASE-TXID (High — resolved):**
+- Coinbase transactions now set `lock_time = height` instead of `lock_time = 0`
+- Since `lock_time` is included in the witness-stripped txid, each block height produces a unique coinbase txid
+- Updated all `make_coinbase_unique` helpers across chain_state, storage, security_audit, and storage_test
+- E2E regression test now verifies 3 blocks to same address produce 3 distinct UTXOs
+
+**Node::process_transaction fee=0 (Medium — resolved):**
+- `process_transaction()` now computes actual fee (`input_sum - output_sum`) before mempool insertion
+- Uses checked arithmetic (`checked_add`, `checked_sub`) per project conventions
+- RPC `sendrawtransaction` now works correctly with MIN_TX_FEE enforcement
+
+**Stats:**
+- 818 tests passing, zero clippy warnings, zero active blockers
+- 8 files changed, 63 insertions
+- Commit: `89f7eca`, pushed to origin/main
 
 ### 2026-02-16 - Repository Setup & Documentation
 
