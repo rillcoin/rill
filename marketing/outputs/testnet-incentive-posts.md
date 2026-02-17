@@ -26,9 +26,9 @@ Testnet participants receive a 24-48 hour head start to mine at mainnet launch, 
 **How to participate:**
 
 1. Join this Discord and introduce yourself in #general
-2. Run a testnet node (setup guide in #testnet-guides)
+2. Run a testnet node (setup guide in #node-operators)
 3. Report bugs in #bug-reports with reproduction steps
-4. Contribute to governance discussions in #governance
+4. Contribute to governance discussions in #governance-general
 
 Rewards are calculated at mainnet launch based on cumulative activity. No minimum threshold -- every contribution counts.
 
@@ -48,4 +48,4 @@ This is about building a network where wealth flows like water, and making sure 
 
 5/ RillCoin uses progressive concentration decay -- the more you concentrate, the more flows back to miners. This is a cryptocurrency designed for circulation, not accumulation. The testnet is where we prove that works.
 
-6/ Join the testnet now. Run a node. Break things. Report what you find. Wealth should flow like water -- help us shape where the current goes. discord.gg/QxBJfvvUaA @RillCoin
+6/ Join the testnet now. Run a node. Break things. Report what you find. Wealth should flow like water -- help us shape where the current goes. Link in bio. @RillCoin

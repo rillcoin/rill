@@ -111,8 +111,8 @@ class DiscordClient:
                 return resp.json()
             if resp.status_code == 204:
                 return {}
-            # Log error but continue
-            print(f"  [HTTP {resp.status_code}] {method.upper()} {path} -> {resp.text[:200]}")
+            # Log error but never print response body (may contain token fragments)
+            print(f"  [HTTP {resp.status_code}] {method.upper()} {path}")
             return None
 
     def get(self, path: str) -> Optional[dict]:
@@ -179,7 +179,7 @@ STANDARD_MEMBER_PERMS = (
     | PERM_ADD_REACTIONS
     | PERM_READ_MESSAGES_HISTORY
     | PERM_USE_APPLICATION_COMMANDS
-    | PERM_CREATE_INSTANT_INVITE
+    # SECURITY: Invite creation restricted to Moderator+ (HIGH-02)
 )
 
 CORE_TEAM_PERMS = (
@@ -189,7 +189,7 @@ CORE_TEAM_PERMS = (
     | PERM_MUTE_MEMBERS
     | PERM_DEAFEN_MEMBERS
     | PERM_MOVE_MEMBERS
-    | PERM_MENTION_EVERYONE
+    # SECURITY: @everyone mention restricted to Founder only (HIGH-01)
 )
 
 MODERATOR_PERMS = (
@@ -201,6 +201,7 @@ MODERATOR_PERMS = (
     | PERM_VIEW_AUDIT_LOG
     | PERM_TIMEOUT_MEMBERS
     | PERM_MUTE_MEMBERS
+    | PERM_CREATE_INSTANT_INVITE  # Invite creation is Moderator+ only
 )
 
 # ---------------------------------------------------------------------------
@@ -245,7 +246,7 @@ ROLES = [
     },
     {
         "name": "Bug Hunter",
-        "color": hex_to_int("#F97316"),
+        "color": hex_to_int("#D97706"),  # Amber — distinct from Founder orange (MED-04)
         "hoist": False,
         "mentionable": False,
         "permissions": str(STANDARD_MEMBER_PERMS),
@@ -272,39 +273,40 @@ ROLES = [
         "permissions": str(PERM_VIEW_CHANNEL | PERM_READ_MESSAGES_HISTORY),
     },
     # Opt-in notification roles
+    # SECURITY: mentionable=False — only Core Team/Moderator can ping these (HIGH-03)
     {
         "name": "Announcements Ping",
         "color": 0,
         "hoist": False,
-        "mentionable": True,
+        "mentionable": False,
         "permissions": str(STANDARD_MEMBER_PERMS),
     },
     {
         "name": "Testnet Ping",
         "color": 0,
         "hoist": False,
-        "mentionable": True,
+        "mentionable": False,
         "permissions": str(STANDARD_MEMBER_PERMS),
     },
     {
         "name": "Dev Updates Ping",
         "color": 0,
         "hoist": False,
-        "mentionable": True,
+        "mentionable": False,
         "permissions": str(STANDARD_MEMBER_PERMS),
     },
     {
         "name": "AMA Ping",
         "color": 0,
         "hoist": False,
-        "mentionable": True,
+        "mentionable": False,
         "permissions": str(STANDARD_MEMBER_PERMS),
     },
     {
         "name": "Governance Ping",
         "color": 0,
         "hoist": False,
-        "mentionable": True,
+        "mentionable": False,
         "permissions": str(STANDARD_MEMBER_PERMS),
     },
 ]
@@ -1484,6 +1486,20 @@ class ServerSetup:
                 time.sleep(0.5)
 
     # ------------------------------------------------------------------
+    # Step 2b: Validate required roles exist (MED-03)
+    # ------------------------------------------------------------------
+
+    def _validate_required_roles(self) -> None:
+        """Abort if any role critical to permission overwrites was not created."""
+        required = ["Founder", "Core Team", "Moderator", "Contributor",
+                     "Member", "Unverified"]
+        missing = [r for r in required if r not in self.role_ids]
+        if missing and not self.dry_run:
+            print(f"\nFATAL: Required roles were not created: {', '.join(missing)}")
+            print("Channel permissions depend on these roles. Aborting.")
+            sys.exit(1)
+
+    # ------------------------------------------------------------------
     # Step 3: Build permission overwrites
     # ------------------------------------------------------------------
 
@@ -1667,6 +1683,21 @@ class ServerSetup:
 
     def pin_messages(self) -> None:
         print("\n--- Pinning messages ---")
+
+        # SECURITY: Hard-fail if any message still contains URL_PLACEHOLDER (CRIT-01)
+        placeholder_errors = []
+        for ch_name, messages in PINNED_MESSAGES.items():
+            for idx, msg in enumerate(messages, start=1):
+                if "URL_PLACEHOLDER" in msg:
+                    placeholder_errors.append(f"  #{ch_name} message {idx}")
+        if placeholder_errors:
+            print("FATAL: URL_PLACEHOLDER found in pinned messages. Replace all")
+            print("placeholders with live URLs before running this script.")
+            print("Affected messages:")
+            for err in placeholder_errors:
+                print(err)
+            sys.exit(1)
+
         for ch_name, messages in PINNED_MESSAGES.items():
             ch_id = self.channel_ids.get(ch_name)
             if not ch_id:
@@ -1726,12 +1757,13 @@ class ServerSetup:
 
     def run(self) -> None:
         print(f"\nRillCoin Discord Server Setup")
-        print(f"Guild ID : {self.guild_id}")
+        print(f"Guild ID : ...{self.guild_id[-4:]}")
         print(f"Dry run  : {self.dry_run}")
         print(f"API base : {API_BASE}")
 
         self.delete_default_channels()
         self.create_roles()
+        self._validate_required_roles()
         self.create_channels()
         self.pin_messages()
 
@@ -1744,9 +1776,13 @@ class ServerSetup:
             print("  1. Assign Founder and Core Team roles to the appropriate users.")
             print("  2. Configure MEE6, Carl-bot, and Wick with their respective settings.")
             print("  3. Set up GitHub and X/Twitter webhooks in #github-feed and #twitter-feed.")
+            print("     SECURITY: Filter GitHub webhook payloads — suppress commits/PRs")
+            print("     containing: security, vulnerability, CVE, exploit, credential, secret.")
             print("  4. Attach the Carl-bot verification button in #roles-and-verification.")
             print("  5. Replace all URL_PLACEHOLDER values in pinned messages with live URLs.")
-            print("  6. Test the onboarding flow end-to-end with an alt account.")
+            print("     (The script will refuse to pin messages containing URL_PLACEHOLDER.)")
+            print("  6. Enable '2FA requirement for moderation' in Server Settings > Safety.")
+            print("  7. Test the onboarding flow end-to-end with an alt account.")
 
 
 # ---------------------------------------------------------------------------
