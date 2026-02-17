@@ -28,6 +28,10 @@ RUN find crates bins -name "Cargo.toml" | while read f; do \
       else \
         mkdir -p "$dir/src" && echo '' > "$dir/src/lib.rs"; \
       fi; \
+      # Create stub bench files referenced in [[bench]] sections.
+      awk '/^\[\[bench\]\]/{b=1} b && /^name *= *"/{gsub(/.*"/, "", $0); gsub(/".*/, "", $0); print; b=0}' "$f" | while read -r bench; do \
+        mkdir -p "$dir/benches" && echo 'fn main() {}' > "$dir/benches/${bench}.rs"; \
+      done; \
     done
 
 RUN cargo fetch --locked

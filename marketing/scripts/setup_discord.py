@@ -608,7 +608,7 @@ SERVER_STRUCTURE = [
             {
                 "name": "price-ticker",
                 "type": CH_TEXT,
-                "topic": "Auto-updating price data for BTC, ETH, and top 20 by market cap. Powered by CoinGecko Bot.",
+                "topic": "Auto-updating price data for BTC, ETH, and top 20 by market cap. Powered by CoinTrendzBot.",
                 "perm_template": "read_only",
             },
             {
@@ -1462,7 +1462,7 @@ This channel provides auto-updating price data for BTC, ETH, and the top 20 cryp
 
 ---
 
-**Bot:** CoinGecko Bot — the official CoinGecko Discord bot. Free tier, supports 4000+ coins, formatted embeds, and scheduled price summaries.
+**Bot:** CoinTrendzBot — a free, feature-rich crypto price bot active since 2017. Supports 4000+ coins, TradingView charts, and live price channels.
 
 **What is tracked:** Bitcoin, Ethereum, and the top 20 by market cap. Once RillCoin is listed on exchanges post-mainnet, RILL will be added to the tracked assets.
 

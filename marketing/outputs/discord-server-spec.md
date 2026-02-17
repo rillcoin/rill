@@ -184,7 +184,7 @@ Permissions: Verified members post bot commands here. Bots post here.
 | `#github-feed` | Automated GitHub commit, PR, and release notifications via webhook. | Bot only (GitHub webhook) | Read-only except webhook |
 | `#twitter-feed` | Automated X/Twitter post feed via webhook or bot. | Bot only | Read-only except bot |
 | `#crypto-news` | Aggregated crypto industry news from CoinDesk, The Block, Bitcoin Magazine, Decrypt. Filtered to PoW, monetary policy, and protocol design topics. | Bot only (MonitoRSS) | Read-only |
-| `#price-ticker` | Auto-updating price data for BTC, ETH, and top 20 by market cap. RILL added post-mainnet listing. | Bot only (CoinGecko Bot) | Read-only |
+| `#price-ticker` | Auto-updating price data for BTC, ETH, and top 20 by market cap. RILL added post-mainnet listing. | Bot only (CoinTrendzBot) | Read-only |
 | `#regulatory-watch` | Low-volume feed of regulatory developments from SEC, CFTC, and industry sources. ~2-5 posts/week. | Bot only (MonitoRSS) | Read-only |
 | `#whale-alerts` | Large transaction alerts on BTC, ETH, and major chains. Stub pre-mainnet; RILL tracking added post-mainnet. | Bot only (Whale Alert Bot) | Read-only |
 
@@ -537,23 +537,24 @@ Filtering: MonitoRSS supports keyword filters per feed. Configure include-filter
 
 ---
 
-### CoinGecko Bot — Price Data Feed
+### CoinTrendzBot — Price Data Feed
 
-**Use:** Automated price summaries for top cryptocurrencies in `#price-ticker`
+**Use:** Automated price data and live price channels for top cryptocurrencies in `#price-ticker`
 
-**Why CoinGecko Bot:** Official bot from CoinGecko, the most widely used crypto data aggregator. Free tier supports 4000+ coins, slash commands, and formatted embeds. No API key required for the Discord bot.
+**Why CoinTrendzBot:** Feature-rich crypto price bot active since 2017. Free tier supports 4000+ coins, TradingView charts, live price channels, and sentiment data. The official CoinGecko Bot is no longer maintained.
 
 **Configuration:**
 
 - Channel: `#price-ticker`
-- Tracked assets: BTC, ETH, and top 20 by market cap
-- Schedule: Configure `/price` auto-posting at a regular interval (e.g., every 4-6 hours)
-- Post-mainnet: Add RILL to tracked assets once listed on CoinGecko
-- Slash commands available in `#bot-commands` for on-demand queries: `/price bitcoin`, `/price ethereum`
+- Live price channel: `/add btc` creates an auto-updating BTC price display
+- On-demand queries: `/p btc`, `/p eth` for price lookups
+- Charts: `/c btc` for TradingView charts with technical indicators
+- Sentiment: `/sentiment` for Fear & Greed Index
+- Post-mainnet: Add RILL to tracked assets once listed
 
-**Invite:** Add from the CoinGecko Bot Discord listing. No API key required.
+**Invite:** `https://discord.com/oauth2/authorize?client_id=1129507560492367902`
 
-**Cost:** Free.
+**Cost:** Free. Premium ($7/month) removes ads and unlocks additional commands.
 
 ---
 
