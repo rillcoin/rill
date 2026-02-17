@@ -34,6 +34,33 @@
 - 16 Criterion benchmarks across 4 crates
 - Docker testnet infrastructure ready
 
+### 2026-02-17 - Marketing: Discord Server Live & Testnet Incentive Program
+
+**Discord Server Provisioned via API:**
+- Python setup script (`marketing/scripts/setup_discord.py`) provisions entire server automatically
+- Bot created, authorized, and connected to RillCoin Discord server
+- 14 roles created with brand-aligned colors and permissions
+- 9 categories + 27 channels created with topics, slowmode, and permission overwrites
+- 24 pinned messages sent and pinned across 16 channels
+- 2 announcement channels (type 5) created after enabling Community features
+- Permanent invite link generated: discord.gg/QxBJfvvUaA
+
+**Testnet Incentive Program Announced:**
+- 50,000 RILL from dev fund allocated proportionally to testnet participants at mainnet launch
+- 24-48 hour early mining access for testnet participants
+- Discord announcement posted to #announcements
+- Conversation starter posted to #general
+- X/Twitter thread drafted (6 tweets) ready for manual posting
+- Content saved to `marketing/outputs/testnet-incentive-posts.md`
+
+**Next steps:**
+- Post X thread manually
+- Assign Founder/Core Team roles to team members
+- Add moderation bots (MEE6, Carl-bot, Wick)
+- Update X bio re: dev fund transparency ("No premine" vs 5% dev allocation)
+- Set up GitHub webhooks for #github-feed
+- Build testnet faucet bot
+
 ### 2026-02-17 - Marketing: Discord Server Specification & Content
 
 **Discord Server Spec (`marketing/outputs/discord-server-spec.md`):**
