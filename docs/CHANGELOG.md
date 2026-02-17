@@ -34,9 +34,9 @@
 - 16 Criterion benchmarks across 4 crates
 - Docker testnet infrastructure ready
 
-### 2026-02-17 - Marketing: Discord Server Live & Testnet Incentive Program
+### 2026-02-17 - Marketing: Discord Server Fully Configured
 
-**Discord Server Provisioned via API:**
+**Discord Server Provisioned & Configured:**
 - Python setup script (`marketing/scripts/setup_discord.py`) provisions entire server automatically
 - Bot created, authorized, and connected to RillCoin Discord server
 - 14 roles created with brand-aligned colors and permissions
@@ -53,12 +53,22 @@
 - X/Twitter thread drafted (6 tweets) ready for manual posting
 - Content saved to `marketing/outputs/testnet-incentive-posts.md`
 
+**Bot & Moderation Configuration:**
+- Carl-bot: welcome DM, reaction roles (5 notification ping roles), logging to #mod-log
+- MEE6 and Wick added to server (dashboard config pending)
+- Discord AutoMod: 4 rules via API (scam phrases, banned copy words, mass mentions, spam detection)
+- All violations logged to #mod-log
+- GitHub webhook live on #github-feed (push, PR, release events)
+- Founder role assigned, role hierarchy ordered
+- URL placeholders replaced with GitHub links in all pinned messages
+- Carl-bot granted permissions in read-only START HERE channels
+
 **Next steps:**
 - Post X thread manually
-- Assign Founder/Core Team roles to team members
-- Add moderation bots (MEE6, Carl-bot, Wick)
+- Configure MEE6 dashboard (leveling/XP system)
+- Configure Wick dashboard (anti-raid thresholds, account age gates)
+- Forum channel templates (#bug-reports, #proposals, #research)
 - Update X bio re: dev fund transparency ("No premine" vs 5% dev allocation)
-- Set up GitHub webhooks for #github-feed
 - Build testnet faucet bot
 
 ### 2026-02-17 - Marketing: Discord Server Specification & Content
