@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### 2026-02-17 - Phase 5: Testnet Launch Readiness (Complete)
+
+**Phase 5a — Full Sync Integration & Chain Reorg:**
+- SyncManager wired into Node event loop with 5s sync tick and 30s timeout tick
+- Chain reorganization: disconnect/reconnect with MAX_REORG_DEPTH=100, UTXO+cluster consistency, mempool recovery
+- Orphan block pool: HashMap keyed by prev_hash, MAX=100, 10min expiry, cascading reconnection
+- Orphan transaction handling: MAX=1000, 5min expiry, retry after block connects
+- IBD (Initial Block Download) mode: AtomicBool flag, 144-block threshold, tx suppression during sync
+
+**Phase 5b — Hardening & Security:**
+- Peer scoring and banning: penalty/bonus system, BAN_THRESHOLD=-200, 24h ban duration
+- DoS protection: per-peer sliding-window rate limiting (blocks 10/min, txs 100/min, headers 5/min), 2MiB max message size
+- Header checkpoint verification: parameterized check_checkpoint(), is_below_checkpoint(), reorg protection below checkpoints
+- Adversarial proptest suite: 12 property-based tests (256 cases each) covering supply monotonicity, coinbase cap, UTXO consistency, difficulty bounds, merkle/hash determinism
+- Block pruning: PruneMode (Full|Pruned(n)), prune_blocks() preserves headers+undo, genesis never pruned
+
+**Phase 5c — Testnet Launch, Performance & Polish:**
+- Testnet config: NetworkType enum (Mainnet/Testnet/Regtest), per-network magic bytes/ports/data dirs, --testnet/--regtest CLI flags
+- Dev fund vesting: DEV_FUND_PREMINE_AMOUNT, 4-year linear vesting, DEV_FUND_MAX_SPEND_PER_BLOCK
+- Criterion benchmark suite: 16 benchmarks across 4 crates (merkle, SHA-256, Ed25519, serialization, sigmoid, decay, block validation, connect_block, UTXO lookup)
+- CLI UX polish: getpeerinfo, getblockchaininfo, getsyncstatus, validateaddress commands; --format json|table output
+- Storage compaction & optimization: compact() method, optimized find_common_ancestor() and get_headers_after()
+- Structured logging: NodeMetrics (blocks_connected, reorgs, mempool_size, peer_count), info_span tracing
+- Multi-node E2E tests: 7 scenarios (sync, competing chains, tx propagation, reorg, consistency across 3 nodes, out-of-order delivery, duplicate rejection)
+- Docker: multi-stage Dockerfile, 3-node docker-compose testnet, .dockerignore
+- Documentation: docs/TESTNET.md, docs/ARCHITECTURE.md, README.md update
+
+**Stats:**
+- 927 tests passing (up from 818), zero clippy warnings
+- 16 Criterion benchmarks across 4 crates
+- Docker testnet infrastructure ready
+
 ### 2026-02-17 - Marketing: Discord Server Specification & Content
 
 **Discord Server Spec (`marketing/outputs/discord-server-spec.md`):**

@@ -39,6 +39,7 @@ pub enum BlockError {
     #[error("invalid difficulty: got {got}, expected {expected}")] InvalidDifficulty { got: u64, expected: u64 },
     #[error("tx error in {index}: {source}")] TransactionError { index: usize, source: TransactionError },
     #[error("invalid block version: {0}")] InvalidBlockVersion(u64),
+    #[error("block hash does not match checkpoint")] CheckpointMismatch,
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]

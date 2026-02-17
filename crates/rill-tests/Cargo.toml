@@ -15,6 +15,7 @@ rill-wallet = { path = "../rill-wallet" }
 rill-node-lib = { path = "../rill-node", package = "rill-node-lib" }
 
 [dev-dependencies]
+bincode = { workspace = true }
 proptest = { workspace = true }
 rand = { workspace = true }
 tempfile = { workspace = true }

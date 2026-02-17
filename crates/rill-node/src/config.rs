@@ -6,8 +6,19 @@
 
 use std::path::PathBuf;
 
-use rill_core::constants::DEFAULT_RPC_PORT;
+use rill_core::constants::{NetworkType, DEFAULT_RPC_PORT};
 use rill_network::NetworkConfig;
+
+/// Block pruning mode.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum PruneMode {
+    /// Keep all blocks (default).
+    #[default]
+    Full,
+    /// Keep only the most recent N blocks' full data. Headers and undo data
+    /// are always preserved.
+    Pruned(u64),
+}
 
 /// Configuration for a full node instance.
 #[derive(Debug, Clone)]
@@ -22,13 +33,21 @@ pub struct NodeConfig {
     pub network: NetworkConfig,
     /// Log level filter string (e.g. "info", "debug", "rill_node=trace").
     pub log_level: String,
+    /// Block pruning mode.
+    pub prune_mode: PruneMode,
+    /// Which network this node is participating in.
+    ///
+    /// Controls magic bytes, default ports, and the data directory sub-path.
+    pub network_type: NetworkType,
 }
 
 impl Default for NodeConfig {
     fn default() -> Self {
+        let network_type = NetworkType::default();
         let data_dir = dirs::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("rill");
+            .join("rill")
+            .join(network_type.data_dir_suffix());
 
         Self {
             data_dir,
@@ -36,6 +55,8 @@ impl Default for NodeConfig {
             rpc_port: DEFAULT_RPC_PORT,
             network: NetworkConfig::default(),
             log_level: "info".to_string(),
+            prune_mode: PruneMode::default(),
+            network_type,
         }
     }
 }
@@ -75,11 +96,12 @@ mod tests {
     }
 
     #[test]
-    fn default_data_dir_ends_with_rill() {
+    fn default_data_dir_ends_with_network_suffix() {
         let cfg = NodeConfig::default();
+        // Default is Mainnet, so the last component should be "mainnet".
         assert!(
-            cfg.data_dir.ends_with("rill"),
-            "data_dir should end with 'rill': {:?}",
+            cfg.data_dir.ends_with("mainnet"),
+            "data_dir should end with 'mainnet': {:?}",
             cfg.data_dir
         );
     }
@@ -116,5 +138,59 @@ mod tests {
         let cfg2 = cfg.clone();
         let debug = format!("{cfg2:?}");
         assert!(debug.contains("NodeConfig"));
+    }
+
+    #[test]
+    fn default_prune_mode_is_full() {
+        let cfg = NodeConfig::default();
+        assert_eq!(cfg.prune_mode, PruneMode::Full);
+    }
+
+    #[test]
+    fn prune_mode_pruned_variant() {
+        let mode = PruneMode::Pruned(1000);
+        assert_eq!(mode, PruneMode::Pruned(1000));
+        assert_ne!(mode, PruneMode::Full);
+    }
+
+    #[test]
+    fn config_default_network_type() {
+        let cfg = NodeConfig::default();
+        assert_eq!(cfg.network_type, NetworkType::Mainnet);
+    }
+
+    #[test]
+    fn config_data_dir_includes_network() {
+        use rill_core::constants::NetworkType;
+
+        let mainnet_cfg = NodeConfig::default();
+        assert!(
+            mainnet_cfg.data_dir.ends_with("mainnet"),
+            "mainnet data_dir should end with 'mainnet': {:?}",
+            mainnet_cfg.data_dir
+        );
+
+        // Build a testnet config manually to verify the suffix changes.
+        let testnet_cfg = NodeConfig {
+            data_dir: PathBuf::from("/tmp/rill").join(NetworkType::Testnet.data_dir_suffix()),
+            network_type: NetworkType::Testnet,
+            ..NodeConfig::default()
+        };
+        assert!(
+            testnet_cfg.data_dir.ends_with("testnet"),
+            "testnet data_dir should end with 'testnet': {:?}",
+            testnet_cfg.data_dir
+        );
+
+        let regtest_cfg = NodeConfig {
+            data_dir: PathBuf::from("/tmp/rill").join(NetworkType::Regtest.data_dir_suffix()),
+            network_type: NetworkType::Regtest,
+            ..NodeConfig::default()
+        };
+        assert!(
+            regtest_cfg.data_dir.ends_with("regtest"),
+            "regtest data_dir should end with 'regtest': {:?}",
+            regtest_cfg.data_dir
+        );
     }
 }

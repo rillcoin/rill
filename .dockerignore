@@ -1,0 +1,25 @@
+# Build artifacts — never copy these into the Docker build context.
+target/
+
+# Git history is not needed inside the image.
+.git/
+.gitignore
+
+# Markdown and documentation files.
+*.md
+docs/
+
+# Claude agent files.
+.claude/
+
+# Marketing content.
+marketing/
+
+# Web and Python tooling that are not part of the Rust workspace.
+web/
+python/
+
+# Editor and OS metadata.
+.DS_Store
+*.swp
+*.swo

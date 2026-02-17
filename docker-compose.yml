@@ -1,0 +1,116 @@
+version: '3.8'
+
+# 3-node RillCoin testnet.
+#
+# node1 is the seed/bootstrap node. node2 and node3 peer with node1 via
+# --bootstrap-peers using Docker's internal DNS name resolution.
+#
+# RPC ports are mapped to distinct host ports so all three nodes can be
+# queried from the host:
+#   node1 RPC -> localhost:18332
+#   node2 RPC -> localhost:18334
+#   node3 RPC -> localhost:18336
+#
+# P2P ports are mapped similarly:
+#   node1 P2P -> localhost:18333
+#   node2 P2P -> localhost:18335
+#   node3 P2P -> localhost:18337
+
+services:
+  node1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rill-node1
+    ports:
+      - "18333:18333"   # P2P
+      - "18332:18332"   # RPC
+    volumes:
+      - node1-data:/data
+    command:
+      - "--data-dir"
+      - "/data"
+      - "--p2p-listen-addr"
+      - "0.0.0.0"
+      - "--p2p-listen-port"
+      - "18333"
+      - "--rpc-bind"
+      - "0.0.0.0"
+      - "--rpc-port"
+      - "18332"
+      - "--log-format"
+      - "json"
+    networks:
+      - rillnet
+    restart: unless-stopped
+
+  node2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rill-node2
+    ports:
+      - "18335:18333"   # P2P
+      - "18334:18332"   # RPC
+    volumes:
+      - node2-data:/data
+    command:
+      - "--data-dir"
+      - "/data"
+      - "--p2p-listen-addr"
+      - "0.0.0.0"
+      - "--p2p-listen-port"
+      - "18333"
+      - "--rpc-bind"
+      - "0.0.0.0"
+      - "--rpc-port"
+      - "18332"
+      - "--bootstrap-peers"
+      - "node1:18333"
+      - "--log-format"
+      - "json"
+    networks:
+      - rillnet
+    depends_on:
+      - node1
+    restart: unless-stopped
+
+  node3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rill-node3
+    ports:
+      - "18337:18333"   # P2P
+      - "18336:18332"   # RPC
+    volumes:
+      - node3-data:/data
+    command:
+      - "--data-dir"
+      - "/data"
+      - "--p2p-listen-addr"
+      - "0.0.0.0"
+      - "--p2p-listen-port"
+      - "18333"
+      - "--rpc-bind"
+      - "0.0.0.0"
+      - "--rpc-port"
+      - "18332"
+      - "--bootstrap-peers"
+      - "node1:18333"
+      - "--log-format"
+      - "json"
+    networks:
+      - rillnet
+    depends_on:
+      - node1
+    restart: unless-stopped
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
+
+networks:
+  rillnet:
+    driver: bridge

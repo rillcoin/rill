@@ -16,8 +16,10 @@ randomx = ["rill-consensus/randomx"]
 rill-consensus = { path = "../../crates/rill-consensus" }
 rill-node-lib = { path = "../../crates/rill-node" }
 rill-core = { path = "../../crates/rill-core" }
+rill-network = { path = "../../crates/rill-network" }
 tokio = { workspace = true, features = ["signal"] }
 clap = { workspace = true, features = ["derive"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 hex.workspace = true
+dirs.workspace = true

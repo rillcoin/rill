@@ -24,5 +24,5 @@ rand.workspace = true
 tempfile.workspace = true
 
 [[bench]]
-name = "decay_benchmarks"
+name = "decay_benches"
 harness = false

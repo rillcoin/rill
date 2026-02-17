@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use rill_core::address::Network;
 use rill_core::constants::{COIN, CONCENTRATION_PRECISION};
 use rill_core::traits::DecayCalculator;
@@ -78,11 +78,25 @@ impl rill_core::traits::ChainState for RpcChainState {
     }
 }
 
+/// Output format for CLI commands.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+enum OutputFormat {
+    /// Human-readable table output (default).
+    #[default]
+    Table,
+    /// Machine-readable JSON output.
+    Json,
+}
+
 /// RillCoin command-line wallet interface.
 #[derive(Parser)]
 #[command(name = "rill-cli")]
 #[command(version, about = "Wealth should flow like water.")]
 struct Cli {
+    /// Output format: table (human-readable) or json (machine-readable).
+    #[arg(long, global = true, default_value = "table")]
+    format: OutputFormat,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -100,6 +114,14 @@ enum Commands {
     Balance(BalanceArgs),
     /// Send a transaction.
     Send(SendArgs),
+    /// Show connected peer count.
+    Getpeerinfo(NodeArgs),
+    /// Show blockchain state: height, best hash, supply, decay pool, IBD status, UTXO count, mempool size, peer count.
+    Getblockchaininfo(NodeArgs),
+    /// Show current sync state.
+    Getsyncstatus(NodeArgs),
+    /// Validate a RillCoin address (rill1... or trill1...).
+    Validateaddress(ValidateAddressArgs),
 }
 
 #[derive(Subcommand)]
@@ -177,6 +199,20 @@ struct SendArgs {
     rpc_endpoint: String,
 }
 
+/// Arguments common to node-querying commands.
+#[derive(Args)]
+struct NodeArgs {
+    /// RPC endpoint URL.
+    #[arg(short, long, default_value = "http://127.0.0.1:18332")]
+    rpc_endpoint: String,
+}
+
+#[derive(Args)]
+struct ValidateAddressArgs {
+    /// The address to validate.
+    address: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -187,6 +223,7 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+    let format = cli.format;
 
     match cli.command {
         Commands::Wallet { action } => match action {
@@ -196,7 +233,167 @@ async fn main() -> Result<()> {
         Commands::Address(args) => wallet_address(args).await,
         Commands::Balance(args) => wallet_balance(args).await,
         Commands::Send(args) => wallet_send(args).await,
+        Commands::Getpeerinfo(args) => get_peer_info(args, format).await,
+        Commands::Getblockchaininfo(args) => get_blockchain_info(args, format).await,
+        Commands::Getsyncstatus(args) => get_sync_status(args, format).await,
+        Commands::Validateaddress(args) => validate_address(args, format),
     }
+}
+
+/// Show connected peer count from the node.
+async fn get_peer_info(args: NodeArgs, format: OutputFormat) -> Result<()> {
+    let client = rpc_client(&args.rpc_endpoint)?;
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    let info: serde_json::Value = client
+        .request("getpeerinfo", ArrayParams::new())
+        .await
+        .context("RPC getpeerinfo failed")?;
+
+    match format {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&info)?);
+        }
+        OutputFormat::Table => {
+            let connected = info["connected"].as_u64().unwrap_or(0);
+            println!("Connected peers: {connected}");
+        }
+    }
+
+    Ok(())
+}
+
+/// Show comprehensive blockchain state.
+async fn get_blockchain_info(args: NodeArgs, format: OutputFormat) -> Result<()> {
+    let client = rpc_client(&args.rpc_endpoint)?;
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    let info: serde_json::Value = client
+        .request("getblockchaininfo", ArrayParams::new())
+        .await
+        .context("RPC getblockchaininfo failed")?;
+
+    match format {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&info)?);
+        }
+        OutputFormat::Table => {
+            let height = info["height"].as_u64().unwrap_or(0);
+            let best_hash = info["best_block_hash"].as_str().unwrap_or("unknown");
+            let supply_rills = info["circulating_supply"].as_u64().unwrap_or(0);
+            let decay_pool_rills = info["decay_pool_balance"].as_u64().unwrap_or(0);
+            let ibd = info["initial_block_download"].as_bool().unwrap_or(false);
+            let utxo_count = info["utxo_count"].as_u64().unwrap_or(0);
+            let mempool_size = info["mempool_size"].as_u64().unwrap_or(0);
+            let peer_count = info["peer_count"].as_u64().unwrap_or(0);
+
+            println!("\n=== BLOCKCHAIN INFO ===");
+            println!("Height:           {height}");
+            println!("Best block hash:  {best_hash}");
+            println!(
+                "Circulating supply: {:.8} RILL",
+                supply_rills as f64 / COIN as f64
+            );
+            println!(
+                "Decay pool:       {:.8} RILL",
+                decay_pool_rills as f64 / COIN as f64
+            );
+            println!("IBD mode:         {ibd}");
+            println!("UTXO count:       {utxo_count}");
+            println!("Mempool size:     {mempool_size}");
+            println!("Peers:            {peer_count}");
+        }
+    }
+
+    Ok(())
+}
+
+/// Show current sync status.
+async fn get_sync_status(args: NodeArgs, format: OutputFormat) -> Result<()> {
+    let client = rpc_client(&args.rpc_endpoint)?;
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    let status: serde_json::Value = client
+        .request("getsyncstatus", ArrayParams::new())
+        .await
+        .context("RPC getsyncstatus failed")?;
+
+    match format {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&status)?);
+        }
+        OutputFormat::Table => {
+            let syncing = status["syncing"].as_bool().unwrap_or(false);
+            let height = status["current_height"].as_u64().unwrap_or(0);
+            let peers = status["peer_count"].as_u64().unwrap_or(0);
+            let best_hash = status["best_block_hash"].as_str().unwrap_or("unknown");
+
+            println!("\n=== SYNC STATUS ===");
+            println!(
+                "Syncing:       {}",
+                if syncing { "yes (IBD)" } else { "no (synced)" }
+            );
+            println!("Height:        {height}");
+            println!("Peers:         {peers}");
+            println!("Best hash:     {best_hash}");
+        }
+    }
+
+    Ok(())
+}
+
+/// Validate a RillCoin address (client-side, no RPC required).
+///
+/// Accepts mainnet (`rill1...`) and testnet (`trill1...`) addresses.
+fn validate_address(args: ValidateAddressArgs, format: OutputFormat) -> Result<()> {
+    let addr_str = args.address.trim();
+    let result = addr_str.parse::<rill_core::address::Address>();
+
+    match format {
+        OutputFormat::Json => {
+            let (is_valid, network, message) = match &result {
+                Ok(addr) => {
+                    let net = match addr.network() {
+                        Network::Mainnet => "mainnet",
+                        Network::Testnet => "testnet",
+                    };
+                    (true, net.to_string(), "Address is valid".to_string())
+                }
+                Err(e) => (false, String::new(), format!("{e}")),
+            };
+            let json = serde_json::json!({
+                "address": addr_str,
+                "is_valid": is_valid,
+                "network": if is_valid { serde_json::Value::String(network) } else { serde_json::Value::Null },
+                "message": message,
+            });
+            println!("{}", serde_json::to_string_pretty(&json)?);
+        }
+        OutputFormat::Table => match result {
+            Ok(addr) => {
+                let net = match addr.network() {
+                    Network::Mainnet => "mainnet",
+                    Network::Testnet => "testnet",
+                };
+                println!("Address: {addr_str}");
+                println!("Valid:   yes");
+                println!("Network: {net}");
+            }
+            Err(e) => {
+                println!("Address: {addr_str}");
+                println!("Valid:   no");
+                println!("Reason:  {e}");
+            }
+        },
+    }
+
+    Ok(())
 }
 
 /// Create a new wallet with a random seed.
@@ -310,9 +507,7 @@ async fn wallet_balance(args: BalanceArgs) -> Result<()> {
         .context("Failed to load wallet (check password)")?;
 
     // Connect to RPC and fetch UTXOs for all wallet addresses
-    let client = jsonrpsee::http_client::HttpClientBuilder::default()
-        .build(&args.rpc_endpoint)
-        .context("Failed to connect to RPC")?;
+    let client = rpc_client(&args.rpc_endpoint)?;
 
     use jsonrpsee::core::client::ClientT;
     use jsonrpsee::core::params::ArrayParams;
@@ -479,9 +674,7 @@ async fn wallet_send(args: SendArgs) -> Result<()> {
     }
 
     // Connect to RPC
-    let client = jsonrpsee::http_client::HttpClientBuilder::default()
-        .build(&args.rpc_endpoint)
-        .context("Failed to connect to RPC")?;
+    let client = rpc_client(&args.rpc_endpoint)?;
 
     use jsonrpsee::core::client::ClientT;
     use jsonrpsee::core::params::ArrayParams;
@@ -700,5 +893,125 @@ fn network_name(network: Network) -> &'static str {
     match network {
         Network::Mainnet => "Mainnet",
         Network::Testnet => "Testnet",
+    }
+}
+
+/// Build an HTTP JSON-RPC client for the given endpoint.
+fn rpc_client(endpoint: &str) -> Result<jsonrpsee::http_client::HttpClient> {
+    jsonrpsee::http_client::HttpClientBuilder::default()
+        .build(endpoint)
+        .context("Failed to connect to RPC")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A valid mainnet address generated from a known pubkey hash.
+    fn mainnet_address() -> String {
+        rill_core::address::Address::from_pubkey_hash(
+            rill_core::types::Hash256([0xAB; 32]),
+            Network::Mainnet,
+        )
+        .encode()
+    }
+
+    /// A valid testnet address generated from a known pubkey hash.
+    fn testnet_address() -> String {
+        rill_core::address::Address::from_pubkey_hash(
+            rill_core::types::Hash256([0xCD; 32]),
+            Network::Testnet,
+        )
+        .encode()
+    }
+
+    #[test]
+    fn validate_address_accepts_valid_mainnet() {
+        let addr = mainnet_address();
+        assert!(addr.starts_with("rill1"), "expected rill1 prefix, got: {addr}");
+        let result = addr.parse::<rill_core::address::Address>();
+        assert!(result.is_ok(), "valid mainnet address should parse: {result:?}");
+        assert_eq!(result.unwrap().network(), Network::Mainnet);
+    }
+
+    #[test]
+    fn validate_address_accepts_valid_testnet() {
+        let addr = testnet_address();
+        assert!(addr.starts_with("trill1"), "expected trill1 prefix, got: {addr}");
+        let result = addr.parse::<rill_core::address::Address>();
+        assert!(result.is_ok(), "valid testnet address should parse: {result:?}");
+        assert_eq!(result.unwrap().network(), Network::Testnet);
+    }
+
+    #[test]
+    fn validate_address_rejects_invalid() {
+        let bad_inputs = [
+            "not_an_address",
+            "rill1invalid",
+            "bitcoin1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+            "",
+            "0x1234567890abcdef",
+        ];
+        for bad in &bad_inputs {
+            let result = bad.parse::<rill_core::address::Address>();
+            assert!(
+                result.is_err(),
+                "expected '{bad}' to fail validation, but it parsed successfully"
+            );
+        }
+    }
+
+    #[test]
+    fn blockchain_info_json_format() {
+        // Construct a BlockchainInfoJson-like value and verify it round-trips as JSON.
+        let info = serde_json::json!({
+            "height": 42_u64,
+            "best_block_hash": "aa".repeat(32),
+            "circulating_supply": 5_000_000_000_000_u64,
+            "decay_pool_balance": 0_u64,
+            "initial_block_download": false,
+            "utxo_count": 10_usize,
+            "mempool_size": 3_usize,
+            "peer_count": 2_usize,
+        });
+
+        // Serialize to JSON string, then re-parse — verifying the output is valid JSON.
+        let json_str = serde_json::to_string_pretty(&info).expect("serialization must succeed");
+        let reparsed: serde_json::Value =
+            serde_json::from_str(&json_str).expect("output must be valid JSON");
+
+        assert_eq!(reparsed["height"], 42);
+        assert_eq!(reparsed["initial_block_download"], false);
+        assert_eq!(reparsed["utxo_count"], 10);
+        assert_eq!(reparsed["mempool_size"], 3);
+        assert_eq!(reparsed["peer_count"], 2);
+    }
+
+    #[test]
+    fn cli_help_includes_new_commands() {
+        use clap::CommandFactory;
+        let mut cmd = Cli::command();
+        // Collect all subcommand names from the top-level command.
+        let subcommand_names: Vec<String> = cmd
+            .get_subcommands_mut()
+            .map(|s| s.get_name().to_string())
+            .collect();
+
+        assert!(
+            subcommand_names.iter().any(|n| n == "getpeerinfo"),
+            "getpeerinfo missing from subcommands: {subcommand_names:?}"
+        );
+        assert!(
+            subcommand_names.iter().any(|n| n == "getblockchaininfo"),
+            "getblockchaininfo missing from subcommands: {subcommand_names:?}"
+        );
+        assert!(
+            subcommand_names.iter().any(|n| n == "getsyncstatus"),
+            "getsyncstatus missing from subcommands: {subcommand_names:?}"
+        );
+        assert!(
+            subcommand_names.iter().any(|n| n == "validateaddress"),
+            "validateaddress missing from subcommands: {subcommand_names:?}"
+        );
     }
 }

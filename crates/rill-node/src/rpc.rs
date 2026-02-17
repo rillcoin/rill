@@ -94,6 +94,40 @@ pub struct NodeInfoJson {
     pub decay_pool: f64,
 }
 
+/// JSON representation of blockchain state (for `getblockchaininfo`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockchainInfoJson {
+    /// Current chain tip height.
+    pub height: u64,
+    /// Best block hash as hex.
+    pub best_block_hash: String,
+    /// Circulating supply in rills (satoshi-equivalent).
+    pub circulating_supply: u64,
+    /// Decay pool balance in rills.
+    pub decay_pool_balance: u64,
+    /// Whether the node is in Initial Block Download mode.
+    pub initial_block_download: bool,
+    /// Number of UTXOs in the UTXO set.
+    pub utxo_count: usize,
+    /// Number of transactions in the mempool.
+    pub mempool_size: usize,
+    /// Number of connected peers.
+    pub peer_count: usize,
+}
+
+/// JSON representation of sync status (for `getsyncstatus`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncStatusJson {
+    /// Whether the node is in Initial Block Download mode.
+    pub syncing: bool,
+    /// Current chain tip height.
+    pub current_height: u64,
+    /// Number of connected peers.
+    pub peer_count: usize,
+    /// Current best block hash as hex.
+    pub best_block_hash: String,
+}
+
 /// JSON representation of a block template for mining.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockTemplateJson {
@@ -233,6 +267,14 @@ pub trait RillRpc {
     /// Returns the balance of a cluster by ID.
     #[method(name = "getclusterbalance")]
     async fn get_cluster_balance(&self, cluster_id: String) -> Result<u64, ErrorObjectOwned>;
+
+    /// Returns detailed blockchain state information.
+    #[method(name = "getblockchaininfo")]
+    async fn get_blockchain_info(&self) -> Result<BlockchainInfoJson, ErrorObjectOwned>;
+
+    /// Returns the current sync status of the node.
+    #[method(name = "getsyncstatus")]
+    async fn get_sync_status(&self) -> Result<SyncStatusJson, ErrorObjectOwned>;
 }
 
 /// Implementation of the Rill JSON-RPC server.
@@ -503,6 +545,50 @@ impl RillRpcServer for RpcServerImpl {
             .map_err(|e| rpc_error(-1, &e.to_string()))?;
         Ok(balance)
     }
+
+    async fn get_blockchain_info(&self) -> Result<BlockchainInfoJson, ErrorObjectOwned> {
+        let (height, tip_hash) = self
+            .node
+            .chain_tip()
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        let circulating_supply = self
+            .node
+            .circulating_supply()
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        let decay_pool_balance = self
+            .node
+            .decay_pool_balance()
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        let (mempool_size, _, _) = self.node.mempool_info();
+
+        Ok(BlockchainInfoJson {
+            height,
+            best_block_hash: hex::encode(tip_hash.as_bytes()),
+            circulating_supply,
+            decay_pool_balance,
+            initial_block_download: self.node.is_ibd(),
+            utxo_count: self.node.utxo_count(),
+            mempool_size,
+            peer_count: self.node.peer_count(),
+        })
+    }
+
+    async fn get_sync_status(&self) -> Result<SyncStatusJson, ErrorObjectOwned> {
+        let (height, tip_hash) = self
+            .node
+            .chain_tip()
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        Ok(SyncStatusJson {
+            syncing: self.node.is_ibd(),
+            current_height: height,
+            peer_count: self.node.peer_count(),
+            best_block_hash: hex::encode(tip_hash.as_bytes()),
+        })
+    }
 }
 
 /// Start the JSON-RPC server on the given address.
@@ -656,5 +742,39 @@ mod tests {
         let cluster_id = "bb".repeat(32);
         let hash = parse_hash(&cluster_id).unwrap();
         assert_eq!(hash, Hash256([0xBB; 32]));
+    }
+
+    #[test]
+    fn sync_status_json_serializes() {
+        let status = SyncStatusJson {
+            syncing: false,
+            current_height: 100,
+            peer_count: 3,
+            best_block_hash: "aa".repeat(32),
+        };
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"syncing\":false"));
+        assert!(json.contains("\"current_height\":100"));
+        assert!(json.contains("\"peer_count\":3"));
+    }
+
+    #[test]
+    fn blockchain_info_json_serializes() {
+        let info = BlockchainInfoJson {
+            height: 500,
+            best_block_hash: "aa".repeat(32),
+            circulating_supply: 5_000_000_000_000,
+            decay_pool_balance: 0,
+            initial_block_download: true,
+            utxo_count: 42,
+            mempool_size: 5,
+            peer_count: 3,
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        assert!(json.contains("\"height\":500"));
+        assert!(json.contains("\"initial_block_download\":true"));
+        assert!(json.contains("\"utxo_count\":42"));
+        assert!(json.contains("\"mempool_size\":5"));
+        assert!(json.contains("\"peer_count\":3"));
     }
 }

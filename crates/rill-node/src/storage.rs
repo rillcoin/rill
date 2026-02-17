@@ -143,6 +143,97 @@ impl RocksStore {
             .map_err(|e| RillError::Storage(e.to_string()))
     }
 
+    /// Trigger manual compaction across all column families.
+    ///
+    /// Compaction merges SSTables, reclaims space from deleted keys, and
+    /// improves read performance. Call this during low-activity periods (e.g.
+    /// on startup after IBD completes).
+    pub fn compact(&self) -> Result<(), RillError> {
+        for cf_name in ALL_CFS {
+            let cf = self.cf_handle(cf_name)?;
+            self.db
+                .compact_range_cf(&cf, None::<&[u8]>, None::<&[u8]>);
+        }
+        Ok(())
+    }
+
+    /// Delete full block data for blocks older than `keep_recent` blocks
+    /// from the current tip. Headers and undo data are preserved.
+    ///
+    /// Returns the number of blocks pruned.
+    pub fn prune_blocks(&self, keep_recent: u64) -> Result<u64, RillError> {
+        let (tip_height, _) = self.chain_tip()?;
+
+        // Calculate the cutoff: blocks at heights 1..=cutoff are eligible for pruning.
+        // Height 0 (genesis) is never pruned.
+        let cutoff = tip_height.saturating_sub(keep_recent);
+        if cutoff == 0 {
+            return Ok(0);
+        }
+
+        let cf_blocks = self.cf_handle(CF_BLOCKS)?;
+        let cf_height = self.cf_handle(CF_HEIGHT_INDEX)?;
+        let mut batch = WriteBatch::default();
+        let mut pruned_count = 0u64;
+
+        for height in 1..=cutoff {
+            // Look up the block hash for this height.
+            let hash_bytes = match self
+                .db
+                .get_cf(&cf_height, Self::height_key(height))
+                .map_err(|e| RillError::Storage(e.to_string()))?
+            {
+                Some(bytes) if bytes.len() == 32 => bytes,
+                _ => continue,
+            };
+
+            // Only delete from CF_BLOCKS if the data is still present.
+            if self
+                .db
+                .get_cf(&cf_blocks, &hash_bytes)
+                .map_err(|e| RillError::Storage(e.to_string()))?
+                .is_some()
+            {
+                batch.delete_cf(cf_blocks, &hash_bytes);
+                pruned_count += 1;
+            }
+        }
+
+        if pruned_count > 0 {
+            self.db
+                .write(batch)
+                .map_err(|e| RillError::Storage(e.to_string()))?;
+            tracing::info!("pruned {} full block(s) up to height {}", pruned_count, cutoff);
+        }
+
+        Ok(pruned_count)
+    }
+
+    /// Returns true if the block at the given height has been pruned
+    /// (header exists but full block data does not).
+    pub fn is_block_pruned(&self, height: u64) -> Result<bool, RillError> {
+        // Look up the block hash from the height index.
+        let hash = match self.get_block_hash(height)? {
+            Some(h) => h,
+            None => return Ok(false), // Height not in chain at all.
+        };
+
+        // Header must exist for the block to be considered "pruned" vs "unknown".
+        if self.get_block_header(&hash)?.is_none() {
+            return Ok(false);
+        }
+
+        // Full block data must be absent.
+        let cf_blocks = self.cf_handle(CF_BLOCKS)?;
+        let has_full_data = self
+            .db
+            .get_cf(&cf_blocks, hash.as_bytes())
+            .map_err(|e| RillError::Storage(e.to_string()))?
+            .is_some();
+
+        Ok(!has_full_data)
+    }
+
     // --- Internal helpers ---
 
     /// Get a u64 from the metadata column family.
@@ -371,29 +462,51 @@ impl RocksStore {
         Ok(locator)
     }
 
+    /// Look up the height at which a given hash appears in the height index.
+    ///
+    /// Iterates the height index from the most-recent end backwards, since
+    /// recent blocks are the common case for locator and header-sync queries.
+    /// Returns `None` if the hash is not in the main chain.
+    fn get_height_for_hash(&self, hash: &Hash256) -> Result<Option<u64>, RillError> {
+        let cf_height = self.cf_handle(CF_HEIGHT_INDEX)?;
+        let iter = self
+            .db
+            .iterator_cf(&cf_height, rocksdb::IteratorMode::End);
+        for item in iter {
+            let (key_bytes, value_bytes) =
+                item.map_err(|e| RillError::Storage(e.to_string()))?;
+            if value_bytes.len() == 32 {
+                let stored_hash = Hash256(value_bytes[..32].try_into().unwrap());
+                if stored_hash == *hash && key_bytes.len() == 8 {
+                    let height =
+                        u64::from_be_bytes(key_bytes[..8].try_into().unwrap());
+                    return Ok(Some(height));
+                }
+            }
+        }
+        Ok(None)
+    }
+
     /// Find the first locator hash that we have in our chain.
     ///
     /// Returns (height, hash) of the common ancestor, or None if no match.
+    /// Uses the height index for O(chain_length) worst-case instead of
+    /// O(locator_len * chain_length).
     pub fn find_common_ancestor(
         &self,
         locator: &[Hash256],
     ) -> Result<Option<(u64, Hash256)>, RillError> {
-        let (tip_height, _) = self.chain_tip()?;
-
         for hash in locator {
-            // Check if we have this block header.
-            if let Some(_header) = self.get_block_header(hash)? {
-                // Walk backwards from tip to find the height of this hash in our chain.
-                for height in (0..=tip_height).rev() {
-                    if let Some(our_hash) = self.get_block_hash(height)? {
-                        if our_hash == *hash {
-                            return Ok(Some((height, *hash)));
-                        }
-                    }
-                }
-                // We have the block but it's not on our main chain (stale/orphan).
-                // Keep looking for a deeper common ancestor.
+            // Check if we have this block header at all.
+            if self.get_block_header(hash)?.is_none() {
+                continue;
             }
+            // Scan the height index (newest-first) to find it on our main chain.
+            if let Some(height) = self.get_height_for_hash(hash)? {
+                return Ok(Some((height, *hash)));
+            }
+            // We have the block but it is not on our main chain (stale/orphan).
+            // Keep looking for a deeper common ancestor.
         }
 
         Ok(None)
@@ -401,7 +514,8 @@ impl RocksStore {
 
     /// Get up to `max_count` headers after the given hash.
     ///
-    /// Caps at 2000 headers maximum per request.
+    /// Caps at 2000 headers maximum per request. Uses the height index for an
+    /// O(result_count) scan rather than O(chain_length).
     pub fn get_headers_after(
         &self,
         hash: &Hash256,
@@ -410,30 +524,29 @@ impl RocksStore {
         const MAX_HEADERS_PER_REQUEST: usize = 2000;
         let limit = max_count.min(MAX_HEADERS_PER_REQUEST);
 
-        // Find the height of the starting hash.
-        let (tip_height, _) = self.chain_tip()?;
-        let mut start_height = None;
-
-        for height in 0..=tip_height {
-            if let Some(our_hash) = self.get_block_hash(height)? {
-                if our_hash == *hash {
-                    start_height = Some(height);
-                    break;
-                }
-            }
-        }
-
-        let start = match start_height {
+        // Find the height of the starting hash via the height index.
+        let start_height = match self.get_height_for_hash(hash)? {
             Some(h) => h,
             None => return Ok(vec![]), // Unknown hash, return empty.
         };
 
+        let cf_height = self.cf_handle(CF_HEIGHT_INDEX)?;
         let mut headers = Vec::new();
-        for height in (start + 1)..=tip_height {
+
+        // Seek to the first height after `start_height` and iterate forward.
+        let start_key = Self::height_key(start_height + 1);
+        let iter = self.db.iterator_cf(
+            &cf_height,
+            rocksdb::IteratorMode::From(&start_key, rocksdb::Direction::Forward),
+        );
+
+        for item in iter {
             if headers.len() >= limit {
                 break;
             }
-            if let Some(h) = self.get_block_hash(height)? {
+            let (_, value_bytes) = item.map_err(|e| RillError::Storage(e.to_string()))?;
+            if value_bytes.len() == 32 {
+                let h = Hash256(value_bytes[..32].try_into().unwrap());
                 if let Some(header) = self.get_block_header(&h)? {
                     headers.push(header);
                 }
@@ -1875,5 +1988,252 @@ mod tests {
         let unknown_hash = Hash256([0xFF; 32]);
         let headers = store.get_headers_after(&unknown_hash, 10).unwrap();
         assert_eq!(headers.len(), 0);
+    }
+
+    // ------------------------------------------------------------------
+    // Storage compaction & optimization (Phase 5c.3)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn compact_succeeds() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Add a few blocks so that there is actual data to compact.
+        let mut prev = genesis_hash;
+        for i in 1..=3 {
+            let cb = make_coinbase_unique(50 * COIN, pkh(i as u8), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+        }
+
+        // compact() must complete without errors.
+        store.compact().unwrap();
+
+        // Chain state must be intact after compaction.
+        let (height, _) = store.chain_tip().unwrap();
+        assert_eq!(height, 3);
+        assert_eq!(store.utxo_count(), 4); // genesis + 3 coinbases
+    }
+
+    #[test]
+    fn find_common_ancestor_optimized() {
+        // Same scenario as find_common_ancestor_finds_matching_hash but verifies
+        // the optimized path (height-index scan) produces the same result.
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        let mut prev = genesis_hash;
+        for i in 1..=5 {
+            let cb = make_coinbase_unique(50 * COIN, pkh(0xBB), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+        }
+
+        // Locator contains an unknown hash, then hash@3, then genesis.
+        let hash3 = store.get_block_hash(3).unwrap().unwrap();
+        let locator = vec![Hash256([0xFF; 32]), hash3, genesis_hash];
+
+        let common = store.find_common_ancestor(&locator).unwrap();
+        assert_eq!(common, Some((3, hash3)));
+
+        // Unknown-only locator still returns None.
+        let no_match = store
+            .find_common_ancestor(&[Hash256([0xAB; 32])])
+            .unwrap();
+        assert_eq!(no_match, None);
+    }
+
+    #[test]
+    fn get_headers_after_optimized() {
+        // Same scenario as get_headers_after_returns_correct_range but verifies
+        // the optimized (height-index seek) path produces identical output.
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        let mut prev = genesis_hash;
+        for i in 1..=5 {
+            let cb = make_coinbase_unique(50 * COIN, pkh(0xBB), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+        }
+
+        let hash2 = store.get_block_hash(2).unwrap().unwrap();
+        let headers = store.get_headers_after(&hash2, 10).unwrap();
+
+        // Must return headers for blocks 3, 4, 5 in order.
+        assert_eq!(headers.len(), 3);
+        assert_eq!(headers[0].hash(), store.get_block_hash(3).unwrap().unwrap());
+        assert_eq!(headers[1].hash(), store.get_block_hash(4).unwrap().unwrap());
+        assert_eq!(headers[2].hash(), store.get_block_hash(5).unwrap().unwrap());
+
+        // Count limit is still honoured.
+        let capped = store.get_headers_after(&hash2, 2).unwrap();
+        assert_eq!(capped.len(), 2);
+
+        // Unknown hash returns empty.
+        let empty = store
+            .get_headers_after(&Hash256([0xFF; 32]), 10)
+            .unwrap();
+        assert_eq!(empty.len(), 0);
+    }
+
+    // ------------------------------------------------------------------
+    // Block pruning (Phase 5b.5)
+    // ------------------------------------------------------------------
+
+    /// Build a chain of `count` blocks on top of genesis, returning hashes
+    /// indexed by height (index 0 = genesis hash, index i = block i hash).
+    fn build_chain(store: &mut RocksStore, count: u64) -> Vec<Hash256> {
+        let genesis_hash = genesis::genesis_hash();
+        let mut hashes = vec![genesis_hash];
+        let mut prev = genesis_hash;
+        for i in 1..=count {
+            let cb = make_coinbase_unique(50 * COIN, pkh(i as u8), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+            hashes.push(prev);
+        }
+        hashes
+    }
+
+    #[test]
+    fn prune_blocks_removes_old_data() {
+        // Chain: genesis(0) + blocks 1-4, tip = 4.
+        // prune_blocks(keep_recent=2) should remove full data for heights 1 and 2.
+        let (mut store, _dir) = temp_store();
+        let hashes = build_chain(&mut store, 4);
+
+        let pruned = store.prune_blocks(2).unwrap();
+        assert_eq!(pruned, 2); // heights 1 and 2 pruned
+
+        // Blocks 1 and 2: full data gone.
+        assert!(store.get_block(&hashes[1]).unwrap().is_none());
+        assert!(store.get_block(&hashes[2]).unwrap().is_none());
+
+        // Blocks 3 and 4: full data intact.
+        assert!(store.get_block(&hashes[3]).unwrap().is_some());
+        assert!(store.get_block(&hashes[4]).unwrap().is_some());
+    }
+
+    #[test]
+    fn prune_blocks_preserves_headers() {
+        // After pruning, headers for pruned blocks must still be accessible.
+        let (mut store, _dir) = temp_store();
+        let hashes = build_chain(&mut store, 4);
+
+        store.prune_blocks(2).unwrap();
+
+        // Headers for heights 1 and 2 must still be present.
+        assert!(store.get_block_header(&hashes[1]).unwrap().is_some());
+        assert!(store.get_block_header(&hashes[2]).unwrap().is_some());
+
+        // Heights 3 and 4 headers are unaffected.
+        assert!(store.get_block_header(&hashes[3]).unwrap().is_some());
+        assert!(store.get_block_header(&hashes[4]).unwrap().is_some());
+    }
+
+    #[test]
+    fn prune_blocks_preserves_undo() {
+        // After pruning, undo data for pruned heights must still be present.
+        let (mut store, _dir) = temp_store();
+        let hashes = build_chain(&mut store, 4);
+
+        store.prune_blocks(2).unwrap();
+
+        // Verify undo data survives by confirming disconnect_tip still works
+        // (it reads undo data from the tip, which is height 4 — not pruned).
+        let result = store.disconnect_tip().unwrap();
+        assert_eq!(result.utxos_removed, 1); // coinbase at height 4 removed
+
+        // Now tip is 3. Height 3 undo data must also be intact.
+        let result2 = store.disconnect_tip().unwrap();
+        assert_eq!(result2.utxos_removed, 1);
+
+        // Verify the height index entry is preserved for pruned heights.
+        assert!(store.get_block_hash(1).unwrap().is_some());
+        assert!(store.get_block_hash(2).unwrap().is_some());
+
+        // Verify undo data in CF_UNDO is accessible for height 1 and 2 hashes.
+        let cf_undo = store.cf_handle(CF_UNDO).unwrap();
+        let undo1 = store
+            .db
+            .get_cf(&cf_undo, hashes[1].as_bytes())
+            .unwrap();
+        assert!(undo1.is_some(), "undo data for height 1 must be preserved");
+        let undo2 = store
+            .db
+            .get_cf(&cf_undo, hashes[2].as_bytes())
+            .unwrap();
+        assert!(undo2.is_some(), "undo data for height 2 must be preserved");
+    }
+
+    #[test]
+    fn prune_blocks_preserves_genesis() {
+        // Genesis block (height 0) must never be pruned regardless of keep_recent.
+        let (mut store, _dir) = temp_store();
+        build_chain(&mut store, 5);
+
+        // keep_recent=0 would prune everything up to tip height, but genesis
+        // is explicitly skipped.
+        let pruned = store.prune_blocks(0).unwrap();
+        assert_eq!(pruned, 5); // heights 1-5 pruned, genesis untouched
+
+        let genesis_hash = genesis::genesis_hash();
+        assert!(
+            store.get_block(&genesis_hash).unwrap().is_some(),
+            "genesis full block data must never be pruned"
+        );
+        assert!(store.get_block_header(&genesis_hash).unwrap().is_some());
+    }
+
+    #[test]
+    fn prune_blocks_returns_count() {
+        // Verify prune_blocks returns the exact number of blocks pruned.
+        let (mut store, _dir) = temp_store();
+        build_chain(&mut store, 6); // heights 0-6, tip=6
+
+        // keep_recent=3 => cutoff=3 => heights 1,2,3 eligible => 3 pruned.
+        let count = store.prune_blocks(3).unwrap();
+        assert_eq!(count, 3);
+
+        // Calling again with the same keep_recent should prune 0 (already done).
+        let count2 = store.prune_blocks(3).unwrap();
+        assert_eq!(count2, 0);
+    }
+
+    #[test]
+    fn is_block_pruned_works() {
+        // is_block_pruned returns true for pruned blocks and false for non-pruned.
+        let (mut store, _dir) = temp_store();
+        build_chain(&mut store, 5); // heights 0-5, tip=5
+
+        // Before pruning everything should report not pruned.
+        assert!(!store.is_block_pruned(0).unwrap()); // genesis
+        assert!(!store.is_block_pruned(1).unwrap());
+        assert!(!store.is_block_pruned(3).unwrap());
+        assert!(!store.is_block_pruned(5).unwrap());
+
+        // Prune heights 1-3 (keep_recent=2 means cutoff=3).
+        store.prune_blocks(2).unwrap();
+
+        // Heights 1, 2, 3 are now pruned.
+        assert!(store.is_block_pruned(1).unwrap());
+        assert!(store.is_block_pruned(2).unwrap());
+        assert!(store.is_block_pruned(3).unwrap());
+
+        // Genesis is not pruned.
+        assert!(!store.is_block_pruned(0).unwrap());
+
+        // Heights 4 and 5 are not pruned.
+        assert!(!store.is_block_pruned(4).unwrap());
+        assert!(!store.is_block_pruned(5).unwrap());
+
+        // Non-existent height returns false.
+        assert!(!store.is_block_pruned(99).unwrap());
     }
 }

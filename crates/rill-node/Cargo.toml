@@ -29,3 +29,9 @@ thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+libp2p.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "node_benches"
+harness = false

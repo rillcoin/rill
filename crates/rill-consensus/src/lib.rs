@@ -7,8 +7,10 @@
 //! Phase 1: Mock PoW using SHA-256 double-hash.
 //! Phase 2: RandomX FFI behind the same trait interface.
 
+pub mod checkpoint;
 pub mod engine;
 #[cfg(feature = "randomx")]
 pub mod randomx;
 
+pub use checkpoint::{check_checkpoint, is_below_checkpoint, last_checkpoint_height};
 pub use engine::{mine_block, ConsensusEngine};

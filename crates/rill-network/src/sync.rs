@@ -59,6 +59,12 @@ pub struct PeerTip {
 }
 
 /// Per-peer synchronization metadata.
+///
+/// Note: this struct carries a lightweight `banned` flag used internally by
+/// [`SyncManager`] to exclude timed-out peers from block distribution. For
+/// full reputation tracking with score decay, bonuses, and time-limited bans,
+/// use [`crate::peer_scoring::PeerScoreBoard`] at the node level rather than
+/// refactoring this struct — that is a separate task.
 #[derive(Debug, Clone)]
 pub struct PeerState {
     /// The peer's chain tip.
@@ -70,6 +76,9 @@ pub struct PeerState {
     /// Timestamp of last request sent (for timeout detection).
     pub last_request_at: Option<std::time::Instant>,
     /// Whether this peer is banned (too many failures).
+    ///
+    /// This is an internal sync-layer flag. For comprehensive peer reputation
+    /// management use [`crate::peer_scoring::PeerScoreBoard`] at the node level.
     pub banned: bool,
 }
 
@@ -279,6 +288,12 @@ impl SyncManager {
     /// We received a batch of headers from a peer.
     ///
     /// Validates header linkage and transitions to downloading blocks.
+    ///
+    /// **Checkpoint validation:** This method validates header chain linkage but
+    /// does **not** verify checkpoint hashes because it has no knowledge of
+    /// block heights. The node layer is responsible for calling
+    /// [`rill_consensus::check_checkpoint`] for each header once its height is
+    /// known, and rejecting the header chain if any checkpoint fails.
     pub fn on_headers_received(&mut self, headers: Vec<BlockHeader>) {
         if headers.is_empty() {
             debug!("sync: received empty headers response");

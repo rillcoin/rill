@@ -24,3 +24,7 @@ randomx = ["dep:randomx-rs"]
 proptest.workspace = true
 criterion.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "consensus_benches"
+harness = false
