@@ -34,6 +34,38 @@
 - 16 Criterion benchmarks across 4 crates
 - Docker testnet infrastructure ready
 
+### 2026-02-17 - Marketing: Telegram, Bridge, Feeds & Governance Proposal
+
+**Telegram Community Setup:**
+- Telegram channel (@Rillcoinchat) and Rillcoin Community Group created and linked
+- Combot added for anti-spam moderation
+- Welcome message pinned in group
+- Brand icon (rill-icon-512.png) set as profile picture
+
+**Discord-Telegram Bridge:**
+- Bridge script (`discord_telegram_bridge.py`) monitors #announcements and #dev-updates
+- Forwards new messages to Telegram group with formatted headers
+- Cron job runs every 2 minutes via `--once` mode
+- State tracking in `.bridge_state.json` prevents duplicate forwards
+
+**Discord Feed Channels:**
+- 4 new channels added to BOTS category: #crypto-news, #price-ticker, #regulatory-watch, #whale-alerts
+- MonitoRSS configured with 3 feeds: Bitcoin Magazine, Cointelegraph, Cointelegraph Regulation
+- CoinTrendzBot deployed for live price voice channels (BTC, ETH, XRP, SOL, BNB + more)
+- Incremental deploy script (`add_feed_channels.py`) for non-destructive channel creation
+- MonitoRSS setup guide written for community lead handoff
+
+**Governance:**
+- RCP-001: Developer Fund Block Reward (5%) & Community Donation Program drafted
+- Posted to #proposals forum and #announcements channel on Discord
+
+**Brand Assets:**
+- rill-icon.svg and rill-icon-512.png created (three converging streams, brand colors)
+
+**Infrastructure:**
+- Dockerfile updated with bench stub fix for cargo fetch
+- Azure testnet scripts added (infra/)
+
 ### 2026-02-17 - Marketing: Discord Server Fully Configured
 
 **Discord Server Provisioned & Configured:**
