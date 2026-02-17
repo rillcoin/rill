@@ -8,5 +8,7 @@
 //! Phase 2: RandomX FFI behind the same trait interface.
 
 pub mod engine;
+#[cfg(feature = "randomx")]
+pub mod randomx;
 
 pub use engine::{mine_block, ConsensusEngine};

@@ -229,6 +229,10 @@ pub trait RillRpc {
     /// Returns UTXOs owned by the given address.
     #[method(name = "getutxosbyaddress")]
     async fn get_utxos_by_address(&self, address: String) -> Result<Vec<UtxoJson>, ErrorObjectOwned>;
+
+    /// Returns the balance of a cluster by ID.
+    #[method(name = "getclusterbalance")]
+    async fn get_cluster_balance(&self, cluster_id: String) -> Result<u64, ErrorObjectOwned>;
 }
 
 /// Implementation of the Rill JSON-RPC server.
@@ -473,26 +477,31 @@ impl RillRpcServer for RpcServerImpl {
             .map_err(|e| rpc_error(-5, &format!("invalid address: {e}")))?;
         let pubkey_hash = addr.pubkey_hash();
 
-        // Get all UTXOs via iter_utxos (O(n) scan, acceptable for Phase 2)
-        let utxos = self.node.iter_utxos()
+        // Use indexed lookup (O(k) where k = address UTXOs)
+        let utxos = self.node.get_utxos_by_address(&pubkey_hash)
             .map_err(|e| rpc_error(-1, &e.to_string()))?;
 
         let mut result = Vec::new();
         for (outpoint, entry) in utxos {
-            if entry.output.pubkey_hash == pubkey_hash {
-                result.push(UtxoJson {
-                    txid: hex::encode(outpoint.txid.as_bytes()),
-                    index: outpoint.index,
-                    value: entry.output.value,
-                    block_height: entry.block_height,
-                    is_coinbase: entry.is_coinbase,
-                    cluster_id: hex::encode(entry.cluster_id.as_bytes()),
-                    pubkey_hash: hex::encode(entry.output.pubkey_hash.as_bytes()),
-                });
-            }
+            result.push(UtxoJson {
+                txid: hex::encode(outpoint.txid.as_bytes()),
+                index: outpoint.index,
+                value: entry.output.value,
+                block_height: entry.block_height,
+                is_coinbase: entry.is_coinbase,
+                cluster_id: hex::encode(entry.cluster_id.as_bytes()),
+                pubkey_hash: hex::encode(entry.output.pubkey_hash.as_bytes()),
+            });
         }
 
         Ok(result)
+    }
+
+    async fn get_cluster_balance(&self, cluster_id: String) -> Result<u64, ErrorObjectOwned> {
+        let hash = parse_hash(&cluster_id)?;
+        let balance = self.node.cluster_balance(&hash)
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+        Ok(balance)
     }
 }
 
@@ -640,5 +649,12 @@ mod tests {
         assert!(json.contains("\"value\":1000000000"));
         assert!(json.contains("\"block_height\":42"));
         assert!(json.contains("\"is_coinbase\":true"));
+    }
+
+    #[test]
+    fn parse_hash_for_cluster_balance() {
+        let cluster_id = "bb".repeat(32);
+        let hash = parse_hash(&cluster_id).unwrap();
+        assert_eq!(hash, Hash256([0xBB; 32]));
     }
 }

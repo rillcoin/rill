@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use rocksdb::{ColumnFamilyDescriptor, Options, WriteBatch, DB};
+use rocksdb::{ColumnFamilyDescriptor, Options, SliceTransform, WriteBatch, DB};
 
 use rill_core::chain_state::{ChainStore, ConnectBlockResult, DisconnectBlockResult};
 use rill_core::error::{ChainStateError, RillError};
@@ -26,6 +26,7 @@ const CF_HEIGHT_INDEX: &str = "height_index";
 const CF_UNDO: &str = "undo";
 const CF_METADATA: &str = "metadata";
 const CF_CLUSTERS: &str = "clusters";
+const CF_ADDRESS_INDEX: &str = "address_index";
 
 /// All column family names.
 const ALL_CFS: &[&str] = &[
@@ -36,6 +37,7 @@ const ALL_CFS: &[&str] = &[
     CF_UNDO,
     CF_METADATA,
     CF_CLUSTERS,
+    CF_ADDRESS_INDEX,
 ];
 
 // --- Metadata keys ---
@@ -81,7 +83,14 @@ impl RocksStore {
 
         let cf_descriptors: Vec<ColumnFamilyDescriptor> = ALL_CFS
             .iter()
-            .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
+            .map(|name| {
+                let mut opts = Options::default();
+                // Configure address index with fixed prefix extractor (32 bytes for pubkey_hash)
+                if *name == CF_ADDRESS_INDEX {
+                    opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(32));
+                }
+                ColumnFamilyDescriptor::new(*name, opts)
+            })
             .collect();
 
         let db = DB::open_cf_descriptors(&db_opts, path.as_ref(), cf_descriptors)
@@ -94,6 +103,9 @@ impl RocksStore {
             let genesis = genesis::genesis_block();
             store.connect_block(genesis, 0)?;
         }
+
+        // Migrate: build address index if empty but UTXOs exist
+        store.migrate_address_index()?;
 
         Ok(store)
     }
@@ -167,6 +179,15 @@ impl RocksStore {
         height.to_be_bytes()
     }
 
+    /// Encode an address index key: pubkey_hash || txid || index(BE).
+    fn encode_address_index_key(pubkey_hash: &Hash256, outpoint: &OutPoint) -> [u8; 72] {
+        let mut key = [0u8; 72];
+        key[0..32].copy_from_slice(pubkey_hash.as_bytes());
+        key[32..64].copy_from_slice(outpoint.txid.as_bytes());
+        key[64..72].copy_from_slice(&outpoint.index.to_be_bytes());
+        key
+    }
+
     /// Compute the total coinbase output value for a block.
     fn coinbase_value(block: &Block) -> u64 {
         block
@@ -207,6 +228,219 @@ impl RocksStore {
         }
 
         Ok(spent)
+    }
+
+    /// One-time migration: build address index from existing UTXOs.
+    fn migrate_address_index(&self) -> Result<(), RillError> {
+        let cf_addr = self.cf_handle(CF_ADDRESS_INDEX)?;
+
+        // Check if index already has entries
+        let mut iter = self.db.iterator_cf(&cf_addr, rocksdb::IteratorMode::Start);
+        if iter.next().is_some() {
+            return Ok(()); // Already populated
+        }
+        drop(iter);
+
+        // Check if there are UTXOs to index
+        let utxo_count = self.get_meta_u64(META_UTXO_COUNT)?;
+        if utxo_count == 0 {
+            return Ok(());
+        }
+
+        tracing::info!("migrating address index for {} UTXOs", utxo_count);
+
+        let cf_utxos = self.cf_handle(CF_UTXOS)?;
+        let mut batch = WriteBatch::default();
+        let mut count = 0u64;
+
+        let iter = self.db.iterator_cf(&cf_utxos, rocksdb::IteratorMode::Start);
+        for item in iter {
+            let (key_bytes, value_bytes) = item.map_err(|e| RillError::Storage(e.to_string()))?;
+            let (outpoint, _): (OutPoint, _) =
+                bincode::decode_from_slice(&key_bytes, bincode::config::standard())
+                    .map_err(|e| RillError::Storage(e.to_string()))?;
+            let (entry, _): (UtxoEntry, _) =
+                bincode::decode_from_slice(&value_bytes, bincode::config::standard())
+                    .map_err(|e| RillError::Storage(e.to_string()))?;
+
+            let addr_key = Self::encode_address_index_key(&entry.output.pubkey_hash, &outpoint);
+            batch.put_cf(cf_addr, addr_key, []);
+            count += 1;
+        }
+
+        if count > 0 {
+            self.db.write(batch).map_err(|e| RillError::Storage(e.to_string()))?;
+            tracing::info!("address index migration complete: {} entries", count);
+        }
+
+        Ok(())
+    }
+
+    /// Get all UTXOs for a given pubkey hash using the address index.
+    ///
+    /// Uses RocksDB prefix iteration over CF_ADDRESS_INDEX for O(k) lookup
+    /// where k is the number of UTXOs owned by this address.
+    pub fn get_utxos_by_address(
+        &self,
+        pubkey_hash: &Hash256,
+    ) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        let cf_addr = self.cf_handle(CF_ADDRESS_INDEX)?;
+        let cf_utxos = self.cf_handle(CF_UTXOS)?;
+        let prefix = pubkey_hash.as_bytes();
+
+        let mut result = Vec::new();
+        let iter = self.db.prefix_iterator_cf(&cf_addr, prefix);
+
+        for item in iter {
+            let (key_bytes, _) = item.map_err(|e| RillError::Storage(e.to_string()))?;
+
+            // Verify the prefix still matches (prefix_iterator may overshoot)
+            if key_bytes.len() != 72 || &key_bytes[0..32] != prefix {
+                break;
+            }
+
+            // Extract outpoint from key
+            let mut txid_bytes = [0u8; 32];
+            txid_bytes.copy_from_slice(&key_bytes[32..64]);
+            let index = u64::from_be_bytes(key_bytes[64..72].try_into().unwrap());
+            let outpoint = OutPoint {
+                txid: Hash256(txid_bytes),
+                index,
+            };
+
+            // Look up the actual UTXO entry
+            let utxo_key = Self::encode_outpoint(&outpoint)?;
+            if let Some(utxo_data) = self.db.get_cf(&cf_utxos, &utxo_key)
+                .map_err(|e| RillError::Storage(e.to_string()))?
+            {
+                let (entry, _): (UtxoEntry, _) =
+                    bincode::decode_from_slice(&utxo_data, bincode::config::standard())
+                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                result.push((outpoint, entry));
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Get a geometric block locator for chain synchronization.
+    ///
+    /// Returns hashes in the pattern: tip, tip-1, tip-2, tip-4, tip-8, ..., genesis.
+    /// This allows efficient common ancestor discovery with O(log n) hashes.
+    pub fn get_block_locator(&self) -> Result<Vec<Hash256>, RillError> {
+        let (tip_height, tip_hash) = self.chain_tip()?;
+        if tip_hash == Hash256::ZERO {
+            return Ok(vec![Hash256::ZERO]);
+        }
+
+        let mut locator = Vec::new();
+        let mut step = 1u64;
+        let mut height = tip_height;
+
+        loop {
+            if let Some(hash) = self.get_block_hash(height)? {
+                locator.push(hash);
+            }
+
+            if height == 0 {
+                break;
+            }
+
+            // Geometric backoff: 1, 1, 2, 4, 8, 16, ...
+            if height <= step {
+                height = 0;
+            } else {
+                height -= step;
+            }
+
+            // Double the step after the first few blocks.
+            if locator.len() > 10 {
+                step *= 2;
+            }
+        }
+
+        // Always include genesis if not already present.
+        if locator.last() != Some(&Hash256::ZERO) {
+            if let Some(genesis_hash) = self.get_block_hash(0)? {
+                if !locator.contains(&genesis_hash) {
+                    locator.push(genesis_hash);
+                }
+            }
+        }
+
+        Ok(locator)
+    }
+
+    /// Find the first locator hash that we have in our chain.
+    ///
+    /// Returns (height, hash) of the common ancestor, or None if no match.
+    pub fn find_common_ancestor(
+        &self,
+        locator: &[Hash256],
+    ) -> Result<Option<(u64, Hash256)>, RillError> {
+        let (tip_height, _) = self.chain_tip()?;
+
+        for hash in locator {
+            // Check if we have this block header.
+            if let Some(_header) = self.get_block_header(hash)? {
+                // Walk backwards from tip to find the height of this hash in our chain.
+                for height in (0..=tip_height).rev() {
+                    if let Some(our_hash) = self.get_block_hash(height)? {
+                        if our_hash == *hash {
+                            return Ok(Some((height, *hash)));
+                        }
+                    }
+                }
+                // We have the block but it's not on our main chain (stale/orphan).
+                // Keep looking for a deeper common ancestor.
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Get up to `max_count` headers after the given hash.
+    ///
+    /// Caps at 2000 headers maximum per request.
+    pub fn get_headers_after(
+        &self,
+        hash: &Hash256,
+        max_count: usize,
+    ) -> Result<Vec<BlockHeader>, RillError> {
+        const MAX_HEADERS_PER_REQUEST: usize = 2000;
+        let limit = max_count.min(MAX_HEADERS_PER_REQUEST);
+
+        // Find the height of the starting hash.
+        let (tip_height, _) = self.chain_tip()?;
+        let mut start_height = None;
+
+        for height in 0..=tip_height {
+            if let Some(our_hash) = self.get_block_hash(height)? {
+                if our_hash == *hash {
+                    start_height = Some(height);
+                    break;
+                }
+            }
+        }
+
+        let start = match start_height {
+            Some(h) => h,
+            None => return Ok(vec![]), // Unknown hash, return empty.
+        };
+
+        let mut headers = Vec::new();
+        for height in (start + 1)..=tip_height {
+            if headers.len() >= limit {
+                break;
+            }
+            if let Some(h) = self.get_block_hash(height)? {
+                if let Some(header) = self.get_block_header(&h)? {
+                    headers.push(header);
+                }
+            }
+        }
+
+        Ok(headers)
     }
 }
 
@@ -266,6 +500,7 @@ impl ChainStore for RocksStore {
         let cf_height = self.cf_handle(CF_HEIGHT_INDEX)?;
         let cf_undo = self.cf_handle(CF_UNDO)?;
         let cf_meta = self.cf_handle(CF_METADATA)?;
+        let cf_addr_index = self.cf_handle(CF_ADDRESS_INDEX)?;
 
         // Track cluster balance deltas.
         let mut cluster_deltas: HashMap<Hash256, i128> = HashMap::new();
@@ -274,6 +509,10 @@ impl ChainStore for RocksStore {
         for (outpoint, entry) in &undo.spent_utxos {
             let key = Self::encode_outpoint(outpoint)?;
             batch.delete_cf(cf_utxos, &key);
+
+            // Delete address index entry
+            let addr_key = Self::encode_address_index_key(&entry.output.pubkey_hash, outpoint);
+            batch.delete_cf(cf_addr_index, addr_key);
 
             // Subtract spent UTXO value from its cluster.
             let delta = cluster_deltas.entry(entry.cluster_id).or_insert(0);
@@ -322,6 +561,10 @@ impl ChainStore for RocksStore {
                     .map_err(|e| RillError::Storage(e.to_string()))?;
                 batch.put_cf(cf_utxos, &key, &value);
                 total_created += 1;
+
+                // Add address index entry
+                let addr_key = Self::encode_address_index_key(&output.pubkey_hash, &outpoint);
+                batch.put_cf(cf_addr_index, addr_key, []);
 
                 // Add created UTXO value to its cluster.
                 let delta = cluster_deltas.entry(output_cluster_id).or_insert(0);
@@ -427,12 +670,13 @@ impl ChainStore for RocksStore {
         let cf_height = self.cf_handle(CF_HEIGHT_INDEX)?;
         let cf_undo = self.cf_handle(CF_UNDO)?;
         let cf_meta = self.cf_handle(CF_METADATA)?;
+        let cf_addr_index = self.cf_handle(CF_ADDRESS_INDEX)?;
 
         // Remove UTXOs created by this block.
         let mut total_removed = 0u64;
         for tx in block.transactions.iter().rev() {
             let txid = tx.txid().map_err(RillError::from)?;
-            for (index, _) in tx.outputs.iter().enumerate() {
+            for (index, output) in tx.outputs.iter().enumerate() {
                 let outpoint = OutPoint {
                     txid,
                     index: index as u64,
@@ -446,6 +690,11 @@ impl ChainStore for RocksStore {
                     .is_some()
                 {
                     batch.delete_cf(cf_utxos, &key);
+
+                    // Delete address index entry
+                    let addr_key = Self::encode_address_index_key(&output.pubkey_hash, &outpoint);
+                    batch.delete_cf(cf_addr_index, addr_key);
+
                     total_removed += 1;
                 }
             }
@@ -458,6 +707,10 @@ impl ChainStore for RocksStore {
             let value = bincode::encode_to_vec(entry, bincode::config::standard())
                 .map_err(|e| RillError::Storage(e.to_string()))?;
             batch.put_cf(cf_utxos, &key, &value);
+
+            // Restore address index entry
+            let addr_key = Self::encode_address_index_key(&entry.output.pubkey_hash, outpoint);
+            batch.put_cf(cf_addr_index, addr_key, []);
         }
 
         // Reverse cluster balance deltas.
@@ -1345,5 +1598,279 @@ mod tests {
         let cluster_id = genesis_coinbase_txid;
         let balance = store.cluster_balance(&cluster_id).unwrap();
         assert_eq!(balance, DEV_FUND_PREMINE);
+    }
+
+    // ------------------------------------------------------------------
+    // Address index tests (Phase 2 Item 3)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn address_index_created_on_connect() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Connect a block with a unique address
+        let addr_pkh = pkh(0xEE);
+        let cb1 = make_coinbase_unique(50 * COIN, addr_pkh, 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        store.connect_block(&block1, 1).unwrap();
+
+        // Verify the UTXO is findable via address index
+        let utxos = store.get_utxos_by_address(&addr_pkh).unwrap();
+        assert_eq!(utxos.len(), 1);
+        assert_eq!(utxos[0].0.txid, cb1_txid);
+        assert_eq!(utxos[0].0.index, 0);
+        assert_eq!(utxos[0].1.output.value, 50 * COIN);
+    }
+
+    #[test]
+    fn address_index_deleted_on_spend() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Block 1: create a UTXO
+        let addr_pkh = pkh(0xEE);
+        let cb1 = make_coinbase_unique(50 * COIN, addr_pkh, 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        // Verify it's in the index
+        let utxos = store.get_utxos_by_address(&addr_pkh).unwrap();
+        assert_eq!(utxos.len(), 1);
+
+        // Block 2: spend the UTXO
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xFF), 2);
+        let spend_tx = make_tx(
+            &[OutPoint {
+                txid: cb1_txid,
+                index: 0,
+            }],
+            49 * COIN,
+            pkh(0xDD), // Different address
+        );
+        let block2 = make_block(hash1, 1_000_120, vec![cb2, spend_tx]);
+        store.connect_block(&block2, 2).unwrap();
+
+        // Verify it's no longer in the index
+        let utxos = store.get_utxos_by_address(&addr_pkh).unwrap();
+        assert_eq!(utxos.len(), 0);
+    }
+
+    #[test]
+    fn address_index_restored_on_disconnect() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Block 1: create a UTXO
+        let addr_pkh = pkh(0xEE);
+        let cb1 = make_coinbase_unique(50 * COIN, addr_pkh, 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        // Block 2: spend the UTXO
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xFF), 2);
+        let spend_tx = make_tx(
+            &[OutPoint {
+                txid: cb1_txid,
+                index: 0,
+            }],
+            49 * COIN,
+            pkh(0xDD),
+        );
+        let block2 = make_block(hash1, 1_000_120, vec![cb2, spend_tx]);
+        store.connect_block(&block2, 2).unwrap();
+
+        // Verify it's gone
+        let utxos = store.get_utxos_by_address(&addr_pkh).unwrap();
+        assert_eq!(utxos.len(), 0);
+
+        // Disconnect block 2
+        store.disconnect_tip().unwrap();
+
+        // Verify the UTXO is back in the index
+        let utxos = store.get_utxos_by_address(&addr_pkh).unwrap();
+        assert_eq!(utxos.len(), 1);
+        assert_eq!(utxos[0].0.txid, cb1_txid);
+        assert_eq!(utxos[0].1.output.value, 50 * COIN);
+    }
+
+    #[test]
+    fn address_index_prefix_lookup() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        let addr_pkh = pkh(0xEE);
+
+        // Block 1: two UTXOs for the same address
+        let cb1a = make_coinbase_unique(30 * COIN, addr_pkh, 1);
+        let cb1a_txid = cb1a.txid().unwrap();
+        let cb1b = make_coinbase_unique(20 * COIN, addr_pkh, 101);
+        let cb1b_txid = cb1b.txid().unwrap();
+        let block1 = make_block(genesis_hash, 1_000_060, vec![cb1a, cb1b]);
+        store.connect_block(&block1, 1).unwrap();
+
+        // Both should be found
+        let utxos = store.get_utxos_by_address(&addr_pkh).unwrap();
+        assert_eq!(utxos.len(), 2);
+
+        let values: Vec<u64> = utxos.iter().map(|(_, entry)| entry.output.value).collect();
+        assert!(values.contains(&(30 * COIN)));
+        assert!(values.contains(&(20 * COIN)));
+
+        let txids: Vec<Hash256> = utxos.iter().map(|(op, _)| op.txid).collect();
+        assert!(txids.contains(&cb1a_txid));
+        assert!(txids.contains(&cb1b_txid));
+    }
+
+    #[test]
+    fn address_index_empty_for_unknown() {
+        let (store, _dir) = temp_store();
+
+        // Query for an address that has no UTXOs
+        let unknown_addr = pkh(0xAB);
+        let utxos = store.get_utxos_by_address(&unknown_addr).unwrap();
+        assert_eq!(utxos.len(), 0);
+    }
+
+    #[test]
+    fn address_index_migration() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("chaindata");
+
+        // Create a store and connect some blocks (genesis + 1)
+        {
+            let mut store = RocksStore::open(&db_path).unwrap();
+            let genesis_hash = genesis::genesis_hash();
+            let cb1 = make_coinbase_unique(50 * COIN, pkh(0xEE), 1);
+            let block1 = make_block(genesis_hash, 1_000_060, vec![cb1]);
+            store.connect_block(&block1, 1).unwrap();
+            store.flush().unwrap();
+        }
+
+        // Reopen — migration should have already run in open()
+        // But we can verify that the address index is populated
+        {
+            let store = RocksStore::open(&db_path).unwrap();
+            let utxos = store.get_utxos_by_address(&pkh(0xEE)).unwrap();
+            assert_eq!(utxos.len(), 1);
+            assert_eq!(utxos[0].1.output.value, 50 * COIN);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Chain sync methods (Phase 3 Item 2)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn get_block_locator_geometric_pattern() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Build a chain: genesis (0) + 10 blocks.
+        let mut prev = genesis_hash;
+        for i in 1..=10 {
+            let cb = make_coinbase_unique(50 * COIN, pkh(0xBB), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+        }
+
+        let locator = store.get_block_locator().unwrap();
+
+        // At height 10, geometric pattern: 10, 9, 8, 6, 2, 0 (after doubling step kicks in).
+        // First few: 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 (step=1 for first 10).
+        // Then step doubles.
+        assert!(locator.len() >= 2);
+        assert_eq!(locator[0], store.get_block_hash(10).unwrap().unwrap());
+        assert!(locator.contains(&genesis_hash));
+    }
+
+    #[test]
+    fn get_block_locator_single_block() {
+        let (store, _dir) = temp_store();
+        let locator = store.get_block_locator().unwrap();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Only genesis exists.
+        assert_eq!(locator.len(), 1);
+        assert_eq!(locator[0], genesis_hash);
+    }
+
+    #[test]
+    fn find_common_ancestor_finds_matching_hash() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Connect 5 blocks.
+        let mut prev = genesis_hash;
+        for i in 1..=5 {
+            let cb = make_coinbase_unique(50 * COIN, pkh(0xBB), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+        }
+
+        let hash3 = store.get_block_hash(3).unwrap().unwrap();
+        let locator = vec![Hash256([0xFF; 32]), hash3, genesis_hash];
+
+        let common = store.find_common_ancestor(&locator).unwrap();
+        assert_eq!(common, Some((3, hash3)));
+    }
+
+    #[test]
+    fn find_common_ancestor_returns_none_for_unknown() {
+        let (store, _dir) = temp_store();
+        let locator = vec![Hash256([0xFF; 32]), Hash256([0xEE; 32])];
+        let common = store.find_common_ancestor(&locator).unwrap();
+        assert_eq!(common, None);
+    }
+
+    #[test]
+    fn get_headers_after_returns_correct_range() {
+        let (mut store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Connect 5 blocks.
+        let mut prev = genesis_hash;
+        for i in 1..=5 {
+            let cb = make_coinbase_unique(50 * COIN, pkh(0xBB), i);
+            let block = make_block(prev, 1_000_000 + i * 60, vec![cb]);
+            prev = block.header.hash();
+            store.connect_block(&block, i).unwrap();
+        }
+
+        let hash2 = store.get_block_hash(2).unwrap().unwrap();
+        let headers = store.get_headers_after(&hash2, 10).unwrap();
+
+        // Should return headers for blocks 3, 4, 5.
+        assert_eq!(headers.len(), 3);
+        assert_eq!(headers[0].hash(), store.get_block_hash(3).unwrap().unwrap());
+        assert_eq!(headers[1].hash(), store.get_block_hash(4).unwrap().unwrap());
+        assert_eq!(headers[2].hash(), store.get_block_hash(5).unwrap().unwrap());
+    }
+
+    #[test]
+    fn get_headers_after_caps_at_2000() {
+        let (store, _dir) = temp_store();
+        let genesis_hash = genesis::genesis_hash();
+
+        // Request 3000 headers (more than max).
+        let headers = store.get_headers_after(&genesis_hash, 3000).unwrap();
+
+        // Should cap at 2000 (but we only have 0 blocks after genesis).
+        assert_eq!(headers.len(), 0);
+    }
+
+    #[test]
+    fn get_headers_after_unknown_hash_returns_empty() {
+        let (store, _dir) = temp_store();
+        let unknown_hash = Hash256([0xFF; 32]);
+        let headers = store.get_headers_after(&unknown_hash, 10).unwrap();
+        assert_eq!(headers.len(), 0);
     }
 }

@@ -74,6 +74,10 @@ pub enum WalletError {
     /// Serialization error.
     #[error("serialization: {0}")]
     Serialization(String),
+
+    /// Invalid BIP-39 mnemonic phrase.
+    #[error("invalid mnemonic: {0}")]
+    InvalidMnemonic(String),
 }
 
 #[cfg(test)]

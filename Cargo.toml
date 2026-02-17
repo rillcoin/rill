@@ -25,6 +25,7 @@ description = "RillCoin: A cryptocurrency with progressive concentration decay"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bincode = "2"
+bip39 = "2"
 sha2 = "0.10"
 blake3 = "1"
 ed25519-dalek = { version = "2", features = ["serde", "rand_core"] }
@@ -57,6 +58,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 tempfile = "3"
 mockall = "0.13"
 rand = "0.8"
+randomx-rs = "1"
 rpassword = "7"
 
 [profile.release]

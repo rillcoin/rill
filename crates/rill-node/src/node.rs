@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use parking_lot::{Mutex, RwLock};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, info, warn};
 
 use rill_consensus::engine::ConsensusEngine;
@@ -18,7 +18,7 @@ use rill_core::mempool::Mempool;
 use rill_core::traits::{BlockProducer, ChainState, DecayCalculator};
 use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, UtxoEntry};
 use rill_decay::engine::DecayEngine;
-use rill_network::{NetworkEvent, NetworkNode};
+use rill_network::{NetworkEvent, NetworkNode, RillRequest, RillResponse, StorageQuery};
 
 use crate::config::NodeConfig;
 use crate::storage::RocksStore;
@@ -117,6 +117,8 @@ pub struct Node {
     network: Option<NetworkNode>,
     /// Receiver for network events (behind tokio Mutex for async recv).
     event_rx: Option<tokio::sync::Mutex<broadcast::Receiver<NetworkEvent>>>,
+    /// Receiver for storage queries from peers (behind tokio Mutex for async recv).
+    query_rx: Option<tokio::sync::Mutex<mpsc::UnboundedReceiver<StorageQuery>>>,
     /// Node configuration.
     config: NodeConfig,
 }
@@ -143,11 +145,15 @@ impl Node {
         let mempool = Mutex::new(Mempool::with_defaults());
 
         // Start network.
-        let (network, event_rx) = match NetworkNode::start(config.network.clone()).await {
-            Ok((net, rx)) => (Some(net), Some(tokio::sync::Mutex::new(rx))),
+        let (network, event_rx, query_rx) = match NetworkNode::start(config.network.clone()).await {
+            Ok((net, rx, qrx)) => (
+                Some(net),
+                Some(tokio::sync::Mutex::new(rx)),
+                Some(tokio::sync::Mutex::new(qrx)),
+            ),
             Err(e) => {
                 warn!("failed to start network: {e}; running without P2P");
-                (None, None)
+                (None, None, None)
             }
         };
 
@@ -157,6 +163,7 @@ impl Node {
             consensus,
             network,
             event_rx,
+            query_rx,
             config,
         });
 
@@ -180,6 +187,7 @@ impl Node {
             consensus,
             network: None,
             event_rx: None,
+            query_rx: None,
             config,
         });
 
@@ -261,21 +269,36 @@ impl Node {
         Ok(txid)
     }
 
-    /// Run the main event loop, processing network events.
+    /// Run the main event loop, processing network events and storage queries.
     ///
     /// This method runs indefinitely, dispatching incoming blocks and
-    /// transactions from the P2P network.
+    /// transactions from the P2P network and answering peer storage queries.
     pub async fn run(self: &Arc<Self>) {
         let event_rx = match &self.event_rx {
             Some(rx) => rx,
             None => {
                 warn!("no network event receiver; event loop idle");
-                // Sleep forever if no network.
                 loop {
                     tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
                 }
             }
         };
+
+        // Spawn storage query processing task if we have a query receiver.
+        if self.query_rx.is_some() {
+            let node = Arc::clone(self);
+            tokio::spawn(async move {
+                let mut rx = node.query_rx.as_ref().unwrap().lock().await;
+                while let Some(query) = rx.recv().await {
+                    let response = node.handle_storage_query(&query.request);
+                    if let Some(ref net) = node.network {
+                        if let Err(e) = net.send_response(query.response_channel, response) {
+                            debug!("failed to send response to peer: {e}");
+                        }
+                    }
+                }
+            });
+        }
 
         loop {
             let event = {
@@ -305,10 +328,10 @@ impl Node {
                     }
                 }
                 NetworkEvent::BlockRequested(hash) => {
-                    debug!(%hash, "peer requested block (not implemented yet)");
+                    debug!(%hash, "peer requested block via gossipsub");
                 }
                 NetworkEvent::HeadersRequested(locator) => {
-                    debug!(count = locator.len(), "peer requested headers (not implemented yet)");
+                    debug!(count = locator.len(), "peer requested headers via gossipsub");
                 }
                 NetworkEvent::PeerConnected(peer_id) => {
                     info!(%peer_id, "peer connected");
@@ -316,6 +339,46 @@ impl Node {
                 NetworkEvent::PeerDisconnected(peer_id) => {
                     info!(%peer_id, "peer disconnected");
                 }
+                NetworkEvent::ChainTipRequested(peer_id) => {
+                    debug!(%peer_id, "peer requested chain tip");
+                }
+                NetworkEvent::RequestResponse { peer, response } => {
+                    debug!(%peer, "received response from peer");
+                    // TODO: Feed to SyncManager when sync is integrated into the event loop.
+                    match response {
+                        RillResponse::ChainTip { height, hash } => {
+                            debug!(%peer, height, %hash, "peer chain tip");
+                        }
+                        _ => {
+                            debug!(%peer, "unhandled response type");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Handle a storage query from a peer, returning the appropriate response.
+    fn handle_storage_query(&self, request: &RillRequest) -> RillResponse {
+        match request {
+            RillRequest::GetChainTip => {
+                let (height, hash) = self.chain_tip().unwrap_or((0, Hash256::ZERO));
+                RillResponse::ChainTip { height, hash }
+            }
+            RillRequest::GetHeaders(locator) => {
+                let store = self.storage.read();
+                let ancestor = store.find_common_ancestor(locator).unwrap_or(None);
+                match ancestor {
+                    Some((_height, hash)) => {
+                        let headers = store.get_headers_after(&hash, 2000).unwrap_or_default();
+                        RillResponse::Headers(headers)
+                    }
+                    None => RillResponse::Headers(vec![]),
+                }
+            }
+            RillRequest::GetBlock(hash) => {
+                let block = self.get_block(hash).unwrap_or(None);
+                RillResponse::Block(block)
             }
         }
     }
@@ -396,6 +459,38 @@ impl Node {
     /// Iterate over all UTXOs (for address-based queries).
     pub fn iter_utxos(&self) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
         self.storage.read().iter_utxos()
+    }
+
+    /// Get UTXOs for an address using the indexed lookup.
+    pub fn get_utxos_by_address(&self, pubkey_hash: &Hash256) -> Result<Vec<(OutPoint, UtxoEntry)>, RillError> {
+        self.storage.read().get_utxos_by_address(pubkey_hash)
+    }
+
+    /// Get the balance of a cluster by ID.
+    pub fn cluster_balance(&self, cluster_id: &Hash256) -> Result<u64, RillError> {
+        self.storage.read().cluster_balance(cluster_id)
+    }
+
+    /// Get a geometric block locator for chain sync.
+    pub fn get_block_locator(&self) -> Result<Vec<Hash256>, RillError> {
+        self.storage.read().get_block_locator()
+    }
+
+    /// Find the common ancestor from a peer's block locator.
+    pub fn find_common_ancestor(
+        &self,
+        locator: &[Hash256],
+    ) -> Result<Option<(u64, Hash256)>, RillError> {
+        self.storage.read().find_common_ancestor(locator)
+    }
+
+    /// Get headers after a given hash (up to max_count, capped at 2000).
+    pub fn get_headers_after(
+        &self,
+        hash: &Hash256,
+        max_count: usize,
+    ) -> Result<Vec<BlockHeader>, RillError> {
+        self.storage.read().get_headers_after(hash, max_count)
     }
 }
 

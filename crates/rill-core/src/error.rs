@@ -83,6 +83,7 @@ pub enum MempoolError {
     #[error("transaction already in pool: {0}")] AlreadyExists(String),
     #[error("conflicts with pool tx {existing_txid} on outpoint {outpoint}")] Conflict { new_txid: String, existing_txid: String, outpoint: String },
     #[error("pool full")] PoolFull,
+    #[error("fee too low: {fee} < minimum {minimum}")] FeeTooLow { fee: u64, minimum: u64 },
     #[error("internal: {0}")] Internal(String),
 }
 

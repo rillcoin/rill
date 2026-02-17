@@ -12,7 +12,9 @@ rill-decay = { path = "../rill-decay" }
 rill-consensus = { path = "../rill-consensus" }
 rill-network = { path = "../rill-network" }
 rill-wallet = { path = "../rill-wallet" }
+rill-node-lib = { path = "../rill-node", package = "rill-node-lib" }
 
 [dev-dependencies]
 proptest = { workspace = true }
 rand = { workspace = true }
+tempfile = { workspace = true }

@@ -11,7 +11,9 @@ pub mod behaviour;
 pub mod config;
 pub mod protocol;
 pub mod service;
+pub mod sync;
 
 pub use config::NetworkConfig;
 pub use protocol::{NetworkMessage, RillCodec, RillRequest, RillResponse, BLOCKS_TOPIC, REQ_RESP_PROTOCOL, TXS_TOPIC};
-pub use service::{NetworkEvent, NetworkNode};
+pub use service::{NetworkEvent, NetworkNode, StorageQuery};
+pub use sync::{SyncAction, SyncManager, SyncState};

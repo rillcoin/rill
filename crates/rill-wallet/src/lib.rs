@@ -18,6 +18,7 @@ pub mod coin_selection;
 pub mod encryption;
 pub mod error;
 pub mod keys;
+pub mod mnemonic;
 pub mod wallet;
 
 // Re-exports for convenient access
@@ -26,4 +27,5 @@ pub use coin_selection::{CoinSelection, CoinSelector, WalletUtxo};
 pub use encryption::{decrypt, encrypt};
 pub use error::WalletError;
 pub use keys::{KeyChain, KeyChainData, Seed};
+pub use mnemonic::{mnemonic_to_seed, seed_to_mnemonic};
 pub use wallet::{Wallet, WalletBalance};

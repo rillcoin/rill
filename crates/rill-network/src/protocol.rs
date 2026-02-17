@@ -102,6 +102,8 @@ pub enum RillRequest {
     GetBlock(Hash256),
     /// Request headers from locator hashes.
     GetHeaders(Vec<Hash256>),
+    /// Request the peer's chain tip (height + hash).
+    GetChainTip,
 }
 
 /// Point-to-point response types for the Rill req-resp protocol.
@@ -111,6 +113,8 @@ pub enum RillResponse {
     Block(Option<Block>),
     /// Headers response.
     Headers(Vec<BlockHeader>),
+    /// Chain tip response (height + hash).
+    ChainTip { height: u64, hash: Hash256 },
 }
 
 /// Maximum request size (hash + locator overhead).

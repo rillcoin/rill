@@ -15,6 +15,10 @@ tracing.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 rand.workspace = true
+randomx-rs = { workspace = true, optional = true }
+
+[features]
+randomx = ["dep:randomx-rs"]
 
 [dev-dependencies]
 proptest.workspace = true

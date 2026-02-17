@@ -222,21 +222,38 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     /// Header size in bytes when serialized for hashing (4 u64 fields + 2 * 32-byte hashes).
-    const HASH_SIZE: usize = 4 * 8 + 2 * 32;
+    pub const HEADER_BYTE_LEN: usize = 4 * 8 + 2 * 32;
+
+    /// Serialize the header to a fixed 96-byte layout for hashing.
+    ///
+    /// Layout: version(8) || prev_hash(32) || merkle_root(32) || timestamp(8) || difficulty_target(8) || nonce(8)
+    /// All integers are little-endian.
+    ///
+    /// This is the canonical byte representation used by both SHA-256 PoW and RandomX PoW.
+    pub fn header_bytes(&self) -> [u8; Self::HEADER_BYTE_LEN] {
+        let mut data = [0u8; Self::HEADER_BYTE_LEN];
+        let mut offset = 0;
+        data[offset..offset + 8].copy_from_slice(&self.version.to_le_bytes());
+        offset += 8;
+        data[offset..offset + 32].copy_from_slice(self.prev_hash.as_bytes());
+        offset += 32;
+        data[offset..offset + 32].copy_from_slice(self.merkle_root.as_bytes());
+        offset += 32;
+        data[offset..offset + 8].copy_from_slice(&self.timestamp.to_le_bytes());
+        offset += 8;
+        data[offset..offset + 8].copy_from_slice(&self.difficulty_target.to_le_bytes());
+        offset += 8;
+        data[offset..offset + 8].copy_from_slice(&self.nonce.to_le_bytes());
+        data
+    }
 
     /// Compute the block header hash (double SHA-256).
     ///
     /// Uses an explicit fixed byte layout: version || prev_hash || merkle_root ||
     /// timestamp || difficulty_target || nonce, all little-endian.
     pub fn hash(&self) -> Hash256 {
-        let mut data = Vec::with_capacity(Self::HASH_SIZE);
-        data.extend_from_slice(&self.version.to_le_bytes());
-        data.extend_from_slice(self.prev_hash.as_bytes());
-        data.extend_from_slice(self.merkle_root.as_bytes());
-        data.extend_from_slice(&self.timestamp.to_le_bytes());
-        data.extend_from_slice(&self.difficulty_target.to_le_bytes());
-        data.extend_from_slice(&self.nonce.to_le_bytes());
-        let first = Sha256::digest(&data);
+        let data = self.header_bytes();
+        let first = Sha256::digest(data);
         Hash256(Sha256::digest(first).into())
     }
 }
@@ -516,7 +533,7 @@ mod tests {
         data.extend_from_slice(&h.timestamp.to_le_bytes());
         data.extend_from_slice(&h.difficulty_target.to_le_bytes());
         data.extend_from_slice(&h.nonce.to_le_bytes());
-        assert_eq!(data.len(), BlockHeader::HASH_SIZE);
+        assert_eq!(data.len(), BlockHeader::HEADER_BYTE_LEN);
     }
 
     // --- Block ---

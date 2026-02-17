@@ -44,6 +44,9 @@ pub const MAX_LOCATOR_SIZE: usize = 64;
 pub const LOCKTIME_THRESHOLD: u64 = 500_000_000;
 pub const MIN_TX_FEE: u64 = 1000;
 
+/// RandomX key rotation interval. Key block = hash at floor(height / 2048) * 2048.
+pub const RANDOMX_KEY_BLOCK_INTERVAL: u64 = 2048;
+
 #[cfg(test)]
 mod tests {
     use super::*;

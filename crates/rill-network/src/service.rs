@@ -23,6 +23,19 @@ use std::time::Duration;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, error, info, warn};
 
+/// A storage query forwarded from a peer's request-response request.
+///
+/// The node processes this query against its storage and sends the response
+/// back via [`Command::SendResponse`].
+pub struct StorageQuery {
+    /// The request from the peer.
+    pub request: RillRequest,
+    /// The peer that sent the request.
+    pub peer: PeerId,
+    /// The libp2p response channel to send the response back.
+    pub response_channel: request_response::ResponseChannel<RillResponse>,
+}
+
 /// Commands sent from [`NetworkNode`] to the background swarm task.
 #[derive(Debug)]
 enum Command {
@@ -31,8 +44,12 @@ enum Command {
     /// Dial a remote peer address (used by connect_peer).
     Dial(Multiaddr),
     /// Send a request-response request to a specific peer.
-    #[allow(dead_code)] // Phase 3: will be used for point-to-point sync
     SendRequest { peer: PeerId, request: RillRequest },
+    /// Send a response back to a peer via their response channel.
+    SendResponse {
+        channel: request_response::ResponseChannel<RillResponse>,
+        response: RillResponse,
+    },
     /// Shut down the swarm event loop.
     Shutdown,
 }
@@ -52,6 +69,15 @@ pub enum NetworkEvent {
     PeerConnected(PeerId),
     /// A peer disconnected.
     PeerDisconnected(PeerId),
+    /// A peer requested our chain tip.
+    ChainTipRequested(PeerId),
+    /// A response was received to one of our requests.
+    RequestResponse {
+        /// The peer that sent the response.
+        peer: PeerId,
+        /// The response payload.
+        response: RillResponse,
+    },
 }
 
 /// Shared atomic state between the [`NetworkNode`] handle and the swarm task.
@@ -84,13 +110,15 @@ impl std::fmt::Debug for NetworkNode {
 }
 
 impl NetworkNode {
-    /// Start the network node, returning a handle and an event receiver.
+    /// Start the network node, returning a handle, event receiver, and query receiver.
     ///
     /// Spawns a background tokio task that runs the libp2p swarm event loop.
     /// The returned [`broadcast::Receiver`] receives [`NetworkEvent`]s from peers.
+    /// The returned [`mpsc::UnboundedReceiver<StorageQuery>`] receives requests
+    /// from peers that need to be answered from storage.
     pub async fn start(
         config: NetworkConfig,
-    ) -> Result<(Self, broadcast::Receiver<NetworkEvent>), String> {
+    ) -> Result<(Self, broadcast::Receiver<NetworkEvent>, mpsc::UnboundedReceiver<StorageQuery>), String> {
         let keypair = Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(keypair.public());
         info!(%local_peer_id, "starting network node");
@@ -195,6 +223,7 @@ impl NetworkNode {
 
         let (command_tx, command_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = broadcast::channel(256);
+        let (query_tx, query_rx) = mpsc::unbounded_channel();
 
         let state = Arc::new(SharedState {
             peer_count: AtomicUsize::new(0),
@@ -203,7 +232,7 @@ impl NetworkNode {
 
         let state_clone = Arc::clone(&state);
         tokio::spawn(async move {
-            swarm_event_loop(swarm, command_rx, event_tx, state_clone).await;
+            swarm_event_loop(swarm, command_rx, event_tx, query_tx, state_clone).await;
         });
 
         let node = NetworkNode {
@@ -212,7 +241,7 @@ impl NetworkNode {
             local_peer_id,
         };
 
-        Ok((node, event_rx))
+        Ok((node, event_rx, query_rx))
     }
 
     /// The local peer ID assigned to this node.
@@ -225,6 +254,11 @@ impl NetworkNode {
         self.state.running.load(Ordering::Relaxed)
     }
 
+    /// Whether this node has any connected peers.
+    pub fn is_connected(&self) -> bool {
+        self.state.peer_count.load(Ordering::Relaxed) > 0
+    }
+
     /// Request the swarm to shut down gracefully.
     pub fn shutdown(&self) {
         let _ = self.command_tx.send(Command::Shutdown);
@@ -234,6 +268,24 @@ impl NetworkNode {
     pub fn connect_peer(&self, addr: Multiaddr) -> Result<(), NetworkError> {
         self.command_tx
             .send(Command::Dial(addr))
+            .map_err(|_| NetworkError::PeerDisconnected("swarm task stopped".into()))
+    }
+
+    /// Send a request-response request to a specific peer.
+    pub fn send_request(&self, peer: PeerId, request: RillRequest) -> Result<(), NetworkError> {
+        self.command_tx
+            .send(Command::SendRequest { peer, request })
+            .map_err(|_| NetworkError::PeerDisconnected("swarm task stopped".into()))
+    }
+
+    /// Send a response back to a peer via their response channel.
+    pub fn send_response(
+        &self,
+        channel: request_response::ResponseChannel<RillResponse>,
+        response: RillResponse,
+    ) -> Result<(), NetworkError> {
+        self.command_tx
+            .send(Command::SendResponse { channel, response })
             .map_err(|_| NetworkError::PeerDisconnected("swarm task stopped".into()))
     }
 
@@ -286,11 +338,13 @@ impl NetworkService for NetworkNode {
 /// Background task running the libp2p swarm event loop.
 ///
 /// Receives commands from [`NetworkNode`] and emits [`NetworkEvent`]s
-/// to subscribers via the broadcast channel.
+/// to subscribers via the broadcast channel. Forwards request-response
+/// requests to the node via the query channel for processing.
 async fn swarm_event_loop(
     mut swarm: libp2p::Swarm<RillBehaviour>,
     mut command_rx: mpsc::UnboundedReceiver<Command>,
     event_tx: broadcast::Sender<NetworkEvent>,
+    query_tx: mpsc::UnboundedSender<StorageQuery>,
     state: Arc<SharedState>,
 ) {
     loop {
@@ -310,6 +364,9 @@ async fn swarm_event_loop(
                     }
                     Some(Command::SendRequest { peer, request }) => {
                         let _ = swarm.behaviour_mut().request_response.send_request(&peer, request);
+                    }
+                    Some(Command::SendResponse { channel, response }) => {
+                        let _ = swarm.behaviour_mut().request_response.send_response(channel, response);
                     }
                     Some(Command::Shutdown) | None => {
                         info!("shutting down swarm event loop");
@@ -357,29 +414,30 @@ async fn swarm_event_loop(
                                 match message {
                                     request_response::Message::Request { request, channel, .. } => {
                                         debug!(%peer, "received request-response request");
-                                        match &request {
-                                            RillRequest::GetBlock(hash) => {
-                                                let _ = event_tx.send(NetworkEvent::BlockRequested(*hash));
-                                            }
-                                            RillRequest::GetHeaders(locator) => {
-                                                let _ = event_tx.send(NetworkEvent::HeadersRequested(locator.clone()));
-                                            }
+
+                                        // Emit ChainTipRequested event for sync manager.
+                                        if matches!(request, RillRequest::GetChainTip) {
+                                            let _ = event_tx.send(NetworkEvent::ChainTipRequested(peer));
                                         }
-                                        // For now, drop the channel (we don't have chain state here)
-                                        // Full response handling deferred to Phase 3
-                                        drop(channel);
+
+                                        // Forward the request to the node for processing.
+                                        let query = StorageQuery {
+                                            request,
+                                            peer,
+                                            response_channel: channel,
+                                        };
+                                        if let Err(e) = query_tx.send(query) {
+                                            debug!("failed to send storage query: {e}");
+                                        }
                                     }
                                     request_response::Message::Response { response, .. } => {
                                         debug!(%peer, "received request-response response");
-                                        match response {
-                                            RillResponse::Block(Some(block)) => {
-                                                let _ = event_tx.send(NetworkEvent::BlockReceived(block));
-                                            }
-                                            RillResponse::Headers(headers) => {
-                                                debug!(count = headers.len(), "received headers response");
-                                            }
-                                            _ => {}
-                                        }
+
+                                        // Emit as NetworkEvent for the sync manager to process.
+                                        let _ = event_tx.send(NetworkEvent::RequestResponse {
+                                            peer,
+                                            response,
+                                        });
                                     }
                                 }
                             }
@@ -575,5 +633,24 @@ mod tests {
         let _cloned = event.clone();
         let debug = format!("{event:?}");
         assert!(debug.contains("BlockRequested"));
+    }
+
+    #[test]
+    fn send_request_sends_command() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let state = Arc::new(SharedState {
+            peer_count: AtomicUsize::new(0),
+            running: AtomicBool::new(true),
+        });
+        let keypair = Keypair::generate_ed25519();
+        let peer_id = PeerId::from(keypair.public());
+        let node = NetworkNode {
+            command_tx: tx,
+            state,
+            local_peer_id: peer_id,
+        };
+        node.send_request(peer_id, RillRequest::GetChainTip).unwrap();
+        let cmd = rx.try_recv().unwrap();
+        assert!(matches!(cmd, Command::SendRequest { .. }));
     }
 }

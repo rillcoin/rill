@@ -25,10 +25,15 @@ use rill_core::{difficulty, merkle, reward};
 /// release, difficulty adjustment, and PoW validation.
 ///
 /// Requires a non-empty chain (genesis block must already be connected).
+///
+/// When compiled with the `randomx` feature, block validation and mining use
+/// ASIC-resistant RandomX hashing instead of SHA-256 double-hash.
 pub struct ConsensusEngine {
     chain_state: Arc<dyn ChainState>,
     decay: Arc<dyn DecayCalculator>,
     clock: Box<dyn Fn() -> u64 + Send + Sync>,
+    #[cfg(feature = "randomx")]
+    randomx_validator: crate::randomx::RandomXValidator,
 }
 
 impl fmt::Debug for ConsensusEngine {
@@ -39,11 +44,21 @@ impl fmt::Debug for ConsensusEngine {
 
 impl ConsensusEngine {
     /// Create a new ConsensusEngine with the system clock.
+    ///
+    /// When the `randomx` feature is enabled, this also initializes a
+    /// [`RandomXValidator`](crate::randomx::RandomXValidator) seeded with the
+    /// genesis block hash.
     pub fn new(
         chain_state: Arc<dyn ChainState>,
         decay: Arc<dyn DecayCalculator>,
     ) -> Self {
         Self {
+            #[cfg(feature = "randomx")]
+            randomx_validator: {
+                let genesis_hash = rill_core::genesis::genesis_hash();
+                crate::randomx::RandomXValidator::new(0, &genesis_hash)
+                    .expect("RandomX validator init failed")
+            },
             chain_state,
             decay,
             clock: Box::new(|| {
@@ -56,12 +71,22 @@ impl ConsensusEngine {
     }
 
     /// Create a new ConsensusEngine with a custom clock for testing.
+    ///
+    /// When the `randomx` feature is enabled, this also initializes a
+    /// [`RandomXValidator`](crate::randomx::RandomXValidator) seeded with the
+    /// genesis block hash.
     pub fn with_clock(
         chain_state: Arc<dyn ChainState>,
         decay: Arc<dyn DecayCalculator>,
         clock: impl Fn() -> u64 + Send + Sync + 'static,
     ) -> Self {
         Self {
+            #[cfg(feature = "randomx")]
+            randomx_validator: {
+                let genesis_hash = rill_core::genesis::genesis_hash();
+                crate::randomx::RandomXValidator::new(0, &genesis_hash)
+                    .expect("RandomX validator init failed")
+            },
             chain_state,
             decay,
             clock: Box::new(clock),
@@ -105,13 +130,33 @@ impl BlockProducer for ConsensusEngine {
     }
 
     fn validate_pow(&self, header: &BlockHeader) -> Result<(), BlockError> {
-        let hash = header.hash();
-        let hash_prefix =
-            u64::from_le_bytes(hash.0[0..8].try_into().expect("hash is 32 bytes"));
-        if hash_prefix <= header.difficulty_target {
-            Ok(())
-        } else {
-            Err(BlockError::InvalidPoW)
+        // Attack vector: An adversary submits a block with a valid SHA-256 hash
+        // but invalid RandomX hash (or vice versa). The cfg gate ensures only
+        // one PoW algorithm is active at compile time, preventing this.
+        #[cfg(feature = "randomx")]
+        {
+            let hash = self
+                .randomx_validator
+                .hash(&header.header_bytes())
+                .map_err(|_| BlockError::InvalidPoW)?;
+            let hash_prefix =
+                u64::from_le_bytes(hash.0[0..8].try_into().expect("hash is 32 bytes"));
+            if hash_prefix <= header.difficulty_target {
+                return Ok(());
+            }
+            return Err(BlockError::InvalidPoW);
+        }
+
+        #[cfg(not(feature = "randomx"))]
+        {
+            let hash = header.hash();
+            let hash_prefix =
+                u64::from_le_bytes(hash.0[0..8].try_into().expect("hash is 32 bytes"));
+            if hash_prefix <= header.difficulty_target {
+                Ok(())
+            } else {
+                Err(BlockError::InvalidPoW)
+            }
         }
     }
 
@@ -239,6 +284,7 @@ impl BlockProducer for ConsensusEngine {
 /// was found within `[0, max_nonce]`, `false` otherwise.
 ///
 /// Phase 1 uses SHA-256 double-hash PoW from [`block_validation::check_pow`].
+/// For RandomX mining, use [`mine_block_randomx`] instead.
 pub fn mine_block(block: &mut Block, max_nonce: u64) -> bool {
     for nonce in 0..=max_nonce {
         block.header.nonce = nonce;
@@ -247,6 +293,33 @@ pub fn mine_block(block: &mut Block, max_nonce: u64) -> bool {
         }
     }
     false
+}
+
+/// Attempt to mine a block using RandomX proof-of-work.
+///
+/// Modifies `block.header.nonce` in place. Returns `Ok(true)` if a valid nonce
+/// was found within `[0, max_nonce]`, `Ok(false)` if no valid nonce was found,
+/// or `Err` if the RandomX hash computation fails.
+///
+/// The `miner` should be a [`RandomXMiner`](crate::randomx::RandomXMiner) or
+/// [`RandomXValidator`](crate::randomx::RandomXValidator) instance whose key
+/// has already been updated for the current block height.
+#[cfg(feature = "randomx")]
+pub fn mine_block_randomx(
+    block: &mut Block,
+    max_nonce: u64,
+    miner: &crate::randomx::RandomXMiner,
+) -> Result<bool, String> {
+    for nonce in 0..=max_nonce {
+        block.header.nonce = nonce;
+        let hash = miner.hash(&block.header.header_bytes())?;
+        let hash_prefix =
+            u64::from_le_bytes(hash.0[0..8].try_into().expect("hash is 32 bytes"));
+        if hash_prefix <= block.header.difficulty_target {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[cfg(test)]

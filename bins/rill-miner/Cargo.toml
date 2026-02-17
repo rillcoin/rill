@@ -9,6 +9,9 @@ license.workspace = true
 name = "rill-miner"
 path = "src/main.rs"
 
+[features]
+randomx = ["rill-consensus/randomx"]
+
 [dependencies]
 rill-core = { path = "../../crates/rill-core" }
 rill-consensus = { path = "../../crates/rill-consensus" }

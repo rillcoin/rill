@@ -8,8 +8,75 @@ use std::path::PathBuf;
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use rill_core::address::Network;
-use rill_core::constants::COIN;
-use rill_wallet::{Seed, Wallet};
+use rill_core::constants::{COIN, CONCENTRATION_PRECISION};
+use rill_core::traits::DecayCalculator;
+use rill_wallet::{CoinSelector, Seed, Wallet};
+
+/// RPC-backed chain state adapter for decay-aware coin selection.
+///
+/// Provides `circulating_supply` and `cluster_balance` from data fetched
+/// via RPC. All other `ChainState` methods return harmless stub values since
+/// `CoinSelector::select()` only calls those two.
+struct RpcChainState {
+    supply: u64,
+    clusters: std::collections::HashMap<rill_core::types::Hash256, u64>,
+}
+
+impl rill_core::traits::ChainState for RpcChainState {
+    fn circulating_supply(&self) -> Result<u64, rill_core::error::RillError> {
+        Ok(self.supply)
+    }
+
+    fn cluster_balance(
+        &self,
+        cluster_id: &rill_core::types::Hash256,
+    ) -> Result<u64, rill_core::error::RillError> {
+        Ok(*self.clusters.get(cluster_id).unwrap_or(&0))
+    }
+
+    fn get_utxo(
+        &self,
+        _outpoint: &rill_core::types::OutPoint,
+    ) -> Result<Option<rill_core::types::UtxoEntry>, rill_core::error::RillError> {
+        Ok(None)
+    }
+
+    fn chain_tip(&self) -> Result<(u64, rill_core::types::Hash256), rill_core::error::RillError> {
+        Ok((0, rill_core::types::Hash256::ZERO))
+    }
+
+    fn get_block_header(
+        &self,
+        _hash: &rill_core::types::Hash256,
+    ) -> Result<Option<rill_core::types::BlockHeader>, rill_core::error::RillError> {
+        Ok(None)
+    }
+
+    fn get_block(
+        &self,
+        _hash: &rill_core::types::Hash256,
+    ) -> Result<Option<rill_core::types::Block>, rill_core::error::RillError> {
+        Ok(None)
+    }
+
+    fn get_block_hash(
+        &self,
+        _height: u64,
+    ) -> Result<Option<rill_core::types::Hash256>, rill_core::error::RillError> {
+        Ok(None)
+    }
+
+    fn decay_pool_balance(&self) -> Result<u64, rill_core::error::RillError> {
+        Ok(0)
+    }
+
+    fn validate_transaction(
+        &self,
+        _tx: &rill_core::types::Transaction,
+    ) -> Result<(), rill_core::error::TransactionError> {
+        Ok(())
+    }
+}
 
 /// RillCoin command-line wallet interface.
 #[derive(Parser)]
@@ -151,11 +218,13 @@ async fn wallet_create(args: WalletCreateArgs) -> Result<()> {
     // Generate seed and display it before creating wallet
     let seed = Seed::generate();
     let seed_hex = hex::encode(seed.as_bytes());
+    let mnemonic = rill_wallet::seed_to_mnemonic(&seed);
 
     println!("\n=== WALLET CREATED ===");
     println!("Network: {}", network_name(network));
-    println!("\nSEED PHRASE (BACKUP THIS SECURELY):");
-    println!("{}", seed_hex);
+    println!("\nSEED PHRASE (BACKUP THIS — 24 WORDS):");
+    println!("  {}", mnemonic);
+    println!("\nAdvanced: hex seed = {}", seed_hex);
     println!("\nWARNING: This seed phrase will NOT be shown again.");
     println!("Store it in a secure location. Anyone with this seed can access your funds.");
 
@@ -185,20 +254,13 @@ async fn wallet_restore(args: WalletRestoreArgs) -> Result<()> {
         bail!("Wallet file already exists: {}", wallet_path.display());
     }
 
-    let seed_hex = if let Some(s) = args.seed {
+    let seed_input = if let Some(s) = args.seed {
         s
     } else {
-        prompt_password("Enter seed phrase (hex)")?
+        prompt_password("Enter seed (24-word mnemonic or hex)")?
     };
 
-    let seed_bytes = hex::decode(seed_hex.trim()).context("Invalid hex seed")?;
-    if seed_bytes.len() != 32 {
-        bail!("Seed must be exactly 32 bytes (64 hex characters)");
-    }
-
-    let mut seed_array = [0u8; 32];
-    seed_array.copy_from_slice(&seed_bytes);
-    let seed = Seed::from_bytes(seed_array);
+    let seed = parse_seed_input(&seed_input)?;
 
     let password = prompt_password("Enter new wallet password")?;
     let password_confirm = prompt_password("Confirm password")?;
@@ -306,15 +368,66 @@ async fn wallet_balance(args: BalanceArgs) -> Result<()> {
     // Scan UTXOs into wallet
     wallet.scan_utxos(&all_utxos);
 
-    // Get chain info for height
+    // Get chain info for height and circulating supply
     let info: serde_json::Value = client
-        .request("getinfo", jsonrpsee::core::params::ArrayParams::new())
+        .request("getinfo", ArrayParams::new())
         .await
         .context("RPC getinfo failed")?;
     let height = info["blocks"].as_u64().unwrap_or(0);
+    let circulating_supply_rill = info["circulating_supply"].as_f64().unwrap_or(0.0);
+    let circulating_supply = (circulating_supply_rill * COIN as f64) as u64;
 
     // Compute nominal balance
     let nominal: u64 = all_utxos.iter().map(|(_, e)| e.output.value).sum();
+
+    // Compute decay-adjusted balance
+    let decay_engine = rill_decay::engine::DecayEngine::new();
+
+    // Group UTXOs by cluster_id
+    let mut clusters: std::collections::HashMap<rill_core::types::Hash256, Vec<&(rill_core::types::OutPoint, rill_core::types::UtxoEntry)>> = std::collections::HashMap::new();
+    for utxo in &all_utxos {
+        clusters.entry(utxo.1.cluster_id).or_default().push(utxo);
+    }
+
+    let mut total_effective = 0u64;
+    let mut cluster_details: Vec<(String, u64, u64)> = Vec::new(); // (cluster_id_short, nominal, effective)
+
+    for (cluster_id, utxos) in &clusters {
+        let cluster_hex = hex::encode(cluster_id.as_bytes());
+
+        // Fetch cluster balance from node
+        let mut params = ArrayParams::new();
+        params.insert(cluster_hex.clone()).unwrap();
+        let cluster_balance: u64 = client
+            .request("getclusterbalance", params)
+            .await
+            .unwrap_or(0); // Best-effort; if RPC fails, assume 0 concentration
+
+        // Compute concentration
+        let concentration_ppb = if circulating_supply > 0 {
+            // cluster_balance * CONCENTRATION_PRECISION / circulating_supply
+            (cluster_balance as u128 * CONCENTRATION_PRECISION as u128 / circulating_supply as u128) as u64
+        } else {
+            0
+        };
+
+        let mut cluster_nominal = 0u64;
+        let mut cluster_effective = 0u64;
+
+        for (_, entry) in utxos {
+            let blocks_held = height.saturating_sub(entry.block_height);
+            let effective = decay_engine
+                .effective_value(entry.output.value, concentration_ppb, blocks_held)
+                .unwrap_or(entry.output.value); // Fallback to nominal on error
+            cluster_nominal += entry.output.value;
+            cluster_effective += effective;
+        }
+
+        total_effective += cluster_effective;
+        cluster_details.push((cluster_hex[..8].to_string(), cluster_nominal, cluster_effective));
+    }
+
+    let total_decay = nominal.saturating_sub(total_effective);
 
     println!("\n=== WALLET BALANCE ===");
     println!("Network: {}", network_name(wallet.network()));
@@ -322,7 +435,26 @@ async fn wallet_balance(args: BalanceArgs) -> Result<()> {
     println!("UTXOs: {}", wallet.utxo_count());
     println!();
     println!("Nominal:   {:.8} RILL", nominal as f64 / COIN as f64);
-    println!("(Decay-adjusted balance requires full chain state - showing nominal only in CLI)");
+    println!("Effective: {:.8} RILL", total_effective as f64 / COIN as f64);
+    if total_decay > 0 {
+        println!("Decay:    -{:.8} RILL ({:.2}%)",
+            total_decay as f64 / COIN as f64,
+            if nominal > 0 { total_decay as f64 / nominal as f64 * 100.0 } else { 0.0 });
+    }
+
+    if cluster_details.len() > 1 {
+        println!();
+        println!("Per-cluster breakdown:");
+        for (cluster_short, c_nom, c_eff) in &cluster_details {
+            let c_decay = c_nom.saturating_sub(*c_eff);
+            println!("  Cluster {}...: {:.8} RILL nominal, {:.8} RILL effective (decay: {:.8})",
+                cluster_short,
+                *c_nom as f64 / COIN as f64,
+                *c_eff as f64 / COIN as f64,
+                c_decay as f64 / COIN as f64);
+        }
+    }
+
     println!();
     println!("Current height: {}", height);
 
@@ -408,46 +540,61 @@ async fn wallet_send(args: SendArgs) -> Result<()> {
         bail!("No UTXOs found for wallet addresses");
     }
 
-    // Get chain info for height
+    // Get chain info for height and circulating supply
     let info: serde_json::Value = client
         .request("getinfo", ArrayParams::new())
         .await
         .context("RPC getinfo failed")?;
-    let _height = info["blocks"].as_u64().unwrap_or(0);
+    let height = info["blocks"].as_u64().unwrap_or(0);
+    let circulating_supply_rill = info["circulating_supply"].as_f64().unwrap_or(0.0);
+    let circulating_supply = (circulating_supply_rill * COIN as f64) as u64;
 
-    // Build transaction using simple greedy coin selection
-    let change_addr = wallet.next_address();
+    // Collect all UTXOs for coin selection
     let utxo_list: Vec<(rill_core::types::OutPoint, rill_core::types::UtxoEntry)> =
         wallet.owned_utxos().into_iter().collect();
 
-    // Simple greedy selection (no decay adjustment for CLI Phase 2)
-    let total_needed = amount_rills + args.fee;
-    let mut selected = Vec::new();
-    let mut total_value = 0u64;
-    for (op, entry) in &utxo_list {
-        selected.push((op.clone(), entry.clone()));
-        total_value += entry.output.value;
-        if total_value >= total_needed {
-            break;
-        }
-    }
-    if total_value < total_needed {
-        bail!("Insufficient funds: have {} rills, need {} rills",
-            total_value, total_needed);
+    // Collect unique cluster IDs and fetch each cluster's balance via RPC
+    let unique_cluster_ids: std::collections::HashSet<rill_core::types::Hash256> =
+        utxo_list.iter().map(|(_, entry)| entry.cluster_id).collect();
+
+    let mut cluster_balances: std::collections::HashMap<rill_core::types::Hash256, u64> =
+        std::collections::HashMap::new();
+    for cluster_id in &unique_cluster_ids {
+        let cluster_hex = hex::encode(cluster_id.as_bytes());
+        let mut params = ArrayParams::new();
+        params.insert(cluster_hex).unwrap();
+        let balance: u64 = client
+            .request("getclusterbalance", params)
+            .await
+            .unwrap_or(0);
+        cluster_balances.insert(*cluster_id, balance);
     }
 
-    let change = total_value - total_needed;
+    // Build RPC-backed chain state for decay-aware coin selection
+    let rpc_state = RpcChainState {
+        supply: circulating_supply,
+        clusters: cluster_balances,
+    };
 
-    // Build transaction
+    // Decay-aware coin selection: spends highest-decay UTXOs first
+    let decay_engine = rill_decay::engine::DecayEngine::new();
+    let selection =
+        CoinSelector::select(&utxo_list, amount_rills, args.fee, 500, &decay_engine, &rpc_state, height)
+            .map_err(|e| anyhow::anyhow!("Coin selection failed: {e}"))?;
+
+    let change = selection.change;
+    let change_addr = wallet.next_address();
+
+    // Build transaction using selected UTXOs
     let mut inputs = Vec::new();
     let mut input_pubkey_hashes = Vec::new();
-    for (op, entry) in &selected {
+    for wallet_utxo in &selection.selected {
         inputs.push(rill_core::types::TxInput {
-            previous_output: op.clone(),
+            previous_output: wallet_utxo.outpoint.clone(),
             signature: vec![],
             public_key: vec![],
         });
-        input_pubkey_hashes.push(entry.output.pubkey_hash);
+        input_pubkey_hashes.push(wallet_utxo.entry.output.pubkey_hash);
     }
 
     let mut outputs = vec![rill_core::types::TxOutput {
@@ -492,7 +639,7 @@ async fn wallet_send(args: SendArgs) -> Result<()> {
     println!("TxID: {txid}");
     println!("To: {}", recipient.encode());
     println!("Amount: {:.8} RILL ({} rills)", args.amount, amount_rills);
-    println!("Fee: {} rills", args.fee);
+    println!("Fee: {} rills", selection.fee);
     if change > 0 {
         println!("Change: {:.8} RILL ({} rills)", change as f64 / COIN as f64, change);
     }
@@ -502,6 +649,26 @@ async fn wallet_send(args: SendArgs) -> Result<()> {
         .context("Failed to save wallet")?;
 
     Ok(())
+}
+
+/// Parse seed input as either a BIP-39 mnemonic (multi-word) or hex string.
+fn parse_seed_input(input: &str) -> Result<Seed> {
+    let trimmed = input.trim();
+    let word_count = trimmed.split_whitespace().count();
+    if word_count > 1 {
+        // Treat as mnemonic
+        rill_wallet::mnemonic_to_seed(trimmed)
+            .map_err(|e| anyhow::anyhow!("Invalid mnemonic: {e}"))
+    } else {
+        // Treat as hex
+        let seed_bytes = hex::decode(trimmed).context("Invalid hex seed")?;
+        if seed_bytes.len() != 32 {
+            anyhow::bail!("Seed must be exactly 32 bytes (64 hex characters)");
+        }
+        let mut seed_array = [0u8; 32];
+        seed_array.copy_from_slice(&seed_bytes);
+        Ok(Seed::from_bytes(seed_array))
+    }
 }
 
 /// Prompt for a password securely (no echo).

@@ -9,7 +9,11 @@ license.workspace = true
 name = "rill-node"
 path = "src/main.rs"
 
+[features]
+randomx = ["rill-consensus/randomx"]
+
 [dependencies]
+rill-consensus = { path = "../../crates/rill-consensus" }
 rill-node-lib = { path = "../../crates/rill-node" }
 rill-core = { path = "../../crates/rill-core" }
 tokio = { workspace = true, features = ["signal"] }

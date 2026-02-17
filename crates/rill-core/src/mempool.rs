@@ -13,6 +13,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+use crate::constants::MIN_TX_FEE;
 use crate::error::MempoolError;
 use crate::types::{Block, Hash256, OutPoint, Transaction};
 
@@ -118,6 +119,10 @@ impl Mempool {
     /// higher fee rate). Eviction continues until space is available or the
     /// new transaction's fee rate is not higher than the lowest entry.
     pub fn insert(&mut self, tx: Transaction, fee: u64) -> Result<Hash256, MempoolError> {
+        if fee < MIN_TX_FEE {
+            return Err(MempoolError::FeeTooLow { fee, minimum: MIN_TX_FEE });
+        }
+
         // Compute txid and size from a single serialization.
         let encoded = bincode::encode_to_vec(&tx, bincode::config::standard())
             .map_err(|e| MempoolError::Internal(e.to_string()))?;
@@ -630,7 +635,7 @@ mod tests {
         let mut pool = Mempool::new(2, 1_000_000);
 
         let txid_low = pool
-            .insert(make_tx(&[outpoint(1, 0)], 49 * COIN, 0), 100) // low fee
+            .insert(make_tx(&[outpoint(1, 0)], 49 * COIN, 0), 1_000) // low fee
             .unwrap();
         let txid_high = pool
             .insert(make_tx(&[outpoint(2, 0)], 48 * COIN, 0), 10_000) // high fee
@@ -657,7 +662,7 @@ mod tests {
 
         // Insert with lower fee rate than the lowest in pool → rejected.
         let err = pool
-            .insert(make_tx(&[outpoint(3, 0)], 47 * COIN, 0), 100)
+            .insert(make_tx(&[outpoint(3, 0)], 47 * COIN, 0), 1_000)
             .unwrap_err();
         assert!(matches!(err, MempoolError::PoolFull));
         assert_eq!(pool.len(), 2);
@@ -730,7 +735,7 @@ mod tests {
         let mut pool = Mempool::new(100, 1_000_000);
 
         let txid_low = pool
-            .insert(make_tx(&[outpoint(1, 0)], 49 * COIN, 0), 100)
+            .insert(make_tx(&[outpoint(1, 0)], 49 * COIN, 0), 1_000)
             .unwrap();
         let txid_high = pool
             .insert(make_tx(&[outpoint(2, 0)], 48 * COIN, 0), 10_000)
@@ -1010,6 +1015,7 @@ mod tests {
                 outpoint: "op:0".into(),
             },
             MempoolError::PoolFull,
+            MempoolError::FeeTooLow { fee: 100, minimum: 1000 },
             MempoolError::Internal("oops".into()),
         ];
         for e in &errors {
@@ -1042,6 +1048,46 @@ mod tests {
         let entry = pool.get(&txid).unwrap();
         let debug = format!("{entry:?}");
         assert!(debug.contains("fee"));
+    }
+
+    // ------------------------------------------------------------------
+    // Min fee enforcement
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn rejects_zero_fee() {
+        let mut pool = Mempool::new(100, 100_000);
+        let tx = make_tx(&[outpoint(1, 0)], 49 * COIN, 0);
+        let err = pool.insert(tx, 0).unwrap_err();
+        assert!(matches!(err, MempoolError::FeeTooLow { fee: 0, minimum: 1000 }));
+    }
+
+    #[test]
+    fn rejects_fee_below_minimum() {
+        let mut pool = Mempool::new(100, 100_000);
+        let tx = make_tx(&[outpoint(1, 0)], 49 * COIN, 0);
+        let err = pool.insert(tx, 999).unwrap_err();
+        assert!(matches!(err, MempoolError::FeeTooLow { fee: 999, minimum: 1000 }));
+    }
+
+    #[test]
+    fn accepts_fee_at_minimum() {
+        let mut pool = Mempool::new(100, 100_000);
+        let tx = make_tx(&[outpoint(1, 0)], 49 * COIN, 0);
+        assert!(pool.insert(tx, 1000).is_ok());
+    }
+
+    #[test]
+    fn accepts_fee_above_minimum() {
+        let mut pool = Mempool::new(100, 100_000);
+        let tx = make_tx(&[outpoint(1, 0)], 49 * COIN, 0);
+        assert!(pool.insert(tx, 5000).is_ok());
+    }
+
+    #[test]
+    fn fee_too_low_error_display() {
+        let e = MempoolError::FeeTooLow { fee: 500, minimum: 1000 };
+        assert_eq!(e.to_string(), "fee too low: 500 < minimum 1000");
     }
 
     // ------------------------------------------------------------------

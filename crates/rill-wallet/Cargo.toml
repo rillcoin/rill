@@ -12,6 +12,7 @@ rill-decay = { path = "../rill-decay" }
 ed25519-dalek.workspace = true
 aes-gcm.workspace = true
 argon2.workspace = true
+bip39.workspace = true
 blake3.workspace = true
 bincode.workspace = true
 hex.workspace = true
