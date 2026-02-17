@@ -54,22 +54,22 @@
 - Content saved to `marketing/outputs/testnet-incentive-posts.md`
 
 **Bot & Moderation Configuration:**
-- Carl-bot: welcome DM, reaction roles (5 notification ping roles), logging to #mod-log
-- MEE6 and Wick added to server (dashboard config pending)
+- Carl-bot: welcome DM, reaction roles (5 notification ping roles via !rr make), logging to #mod-log
+- Carl-bot granted permissions in read-only START HERE channels
+- MEE6: added but free tier too limited — skipped (premium required for moderation/levels)
+- Wick: verification (captcha in #roles-and-verification, 5min duration), join gate (7-day account age, suspicious account kick), anti-nuke (auto quarantine, monitor public roles + channel permissions)
 - Discord AutoMod: 4 rules via API (scam phrases, banned copy words, mass mentions, spam detection)
 - All violations logged to #mod-log
 - GitHub webhook live on #github-feed (push, PR, release events)
 - Founder role assigned, role hierarchy ordered
 - URL placeholders replaced with GitHub links in all pinned messages
-- Carl-bot granted permissions in read-only START HERE channels
 
 **Next steps:**
 - Post X thread manually
-- Configure MEE6 dashboard (leveling/XP system)
-- Configure Wick dashboard (anti-raid thresholds, account age gates)
 - Forum channel templates (#bug-reports, #proposals, #research)
 - Update X bio re: dev fund transparency ("No premine" vs 5% dev allocation)
 - Build testnet faucet bot
+- Consider Wick/MEE6 premium if server scales past 500 members
 
 ### 2026-02-17 - Marketing: Discord Server Specification & Content
 
