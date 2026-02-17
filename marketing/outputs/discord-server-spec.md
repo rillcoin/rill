@@ -335,11 +335,11 @@ The DM is plain text. No images (many users have DM images disabled and this ris
 
 In `#roles-and-verification`, the user encounters a Carl-bot or Wick verification component. Configuration:
 
-- **Method:** Button click + age verification (account must be at least 7 days old)
+- **Method:** Button click + age verification (account must be at least 14 days old)
 - **CAPTCHA:** Enable optional CAPTCHA gate for accounts under 30 days old
 - **On success:** Unverified role removed, Member role applied, bot posts confirmation in `#roles-and-verification` (ephemeral, visible only to the user)
 
-Accounts under 7 days old are auto-held and flagged to moderators in `#mod-log`. This is a high-signal scam indicator.
+Accounts under 14 days old are auto-held and flagged to moderators in `#mod-log`. This is a high-signal scam indicator.
 
 ### Step 4: First Experience
 
@@ -389,11 +389,17 @@ After joining, members discover further pathways through:
 Automod rules:
 - Block messages containing common scam phrases: "DM me for airdrop", "send ETH/BTC to receive", "wallet recovery", "seed phrase", "connect your wallet", "trust wallet", "MetaMask support", any pattern matching `0x[0-9a-fA-F]{40}` (Ethereum addresses — irrelevant to RillCoin but a scam signal)
 - Block messages containing banned words from the copy library: moon, lambo, pump, dump, gem, ape, degen, wagmi, ngmi, diamond hands, paper hands, rug, shill
-- Block new accounts (under 7 days) from posting external links
+- Block new accounts (under 14 days) from posting external links
 - Block messages with more than 3 mentions in a single message (anti-mass-mention spam)
 - Block identical messages sent more than twice within 30 seconds (anti-repeat spam)
 - Block messages with more than 5 Discord invite links
 - Block all messages containing external invite links for accounts under 30 days old
+- Block messages containing fake support/verification phishing: "verify on our portal", "complete verification at", "open a ticket on our website" combined with external URLs
+- Block messages containing QR code scam patterns: "scan this QR" + "verify", "scan to claim", "scan to receive"
+- Block messages containing wallet drainer vectors: "download" + "wallet extension", "install" + "browser extension", "update your wallet to claim"
+- Block messages containing social proof manipulation: "100x confirmed", "early investors are up", "insiders are buying", "whales are buying"
+- Block Telegram invite links (`t.me/`) from accounts under 60 days old
+- Block messages from accounts under 30 days containing "official" + "tool" + URL
 
 Leveling:
 - Enable XP in: `#general`, `#protocol`, `#development`, `#research`, `#testnet-general`, `#off-topic`, `#memes`
@@ -453,8 +459,8 @@ Custom commands (prefix `!` in `#bot-commands`):
 Anti-raid mode: Enable at threshold of 10 joins per 30 seconds. Action: auto-lockdown (prevent new members from seeing any channels until manually lifted by a Moderator). Send alert to `#incident-response`.
 
 Account age gate:
-- Under 7 days: auto-kick with a DM explaining they are welcome to rejoin once their account is older
-- 7–30 days: flag to `#mod-log`, apply a temporary "New Account" tag (no permissions impact, just visibility for moderators)
+- Under 14 days: auto-kick with a DM explaining they are welcome to rejoin once their account is older
+- 14–30 days: flag to `#mod-log`, apply a temporary "New Account" tag (no permissions impact, just visibility for moderators)
 
 Alt detection: Enable cross-ban sync. When a user is banned, Wick flags any subsequent joins from the same IP or device fingerprint as a potential alt.
 

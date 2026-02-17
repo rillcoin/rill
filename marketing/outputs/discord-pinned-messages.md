@@ -39,6 +39,9 @@ RillCoin is a proof-of-work cryptocurrency with a built-in concentration decay m
 
 **Security reminder:**
 No Core Team member or Moderator will ever DM you first to offer support, airdrops, or giveaways. If someone DMs you claiming to be from the team, it is a scam. Report it using the `/report` command or open a ticket in #create-ticket.
+
+**Protect yourself from DM spam:**
+Go to Server Settings (click the server name) → Privacy Settings → disable "Allow direct messages from server members." This prevents strangers in this server from messaging you directly.
 ```
 
 ---
@@ -134,7 +137,7 @@ No Core Team member or Moderator will ever DM you first. We do not offer support
 ---
 
 **Appeals**
-If you believe a moderation action was applied in error, email [appeals@rillcoin.com](URL_PLACEHOLDER) or use the appeal form linked in your ban notice. Appeals are reviewed by Core Team within 7 days.
+If you believe a moderation action was applied in error, email appeals@rillcoin.com or use the appeal form linked in your ban notice. Appeals are reviewed by Core Team within 7 days.
 
 ---
 
@@ -149,7 +152,7 @@ If you believe a moderation action was applied in error, email [appeals@rillcoin
 ## Roles and Verification
 
 **Step 1: Verify your account**
-Click the verification button below this message to complete account verification. Your account must be at least 7 days old. Accounts under 30 days old may be asked to complete a CAPTCHA.
+Click the verification button below this message to complete account verification. Your account must be at least 14 days old. Accounts under 30 days old may be asked to complete a CAPTCHA.
 
 On success, you receive the **Member** role and full access to the server.
 
