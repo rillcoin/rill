@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### 2026-02-17 - Marketing: Discord Server Specification & Content
+
+**Discord Server Spec (`marketing/outputs/discord-server-spec.md`):**
+- Complete production-ready Discord server specification
+- 30+ channels across 9 categories (START HERE, ANNOUNCEMENTS, COMMUNITY, TECHNICAL, TESTNET, GOVERNANCE, SUPPORT, TEAM, BOTS)
+- 14-role hierarchy with brand-aligned colors (Founder=Orange, Core Team=Flowing Blue, etc.)
+- 6 bot configurations: MEE6 (automod), Carl-bot (roles/logging), Wick (anti-raid), GitHub webhooks, Zapier for X feed, plus specs for custom faucet + decay calculator bots
+- Crypto-specific moderation policy with 3-tier escalation
+- Ambassador program, Bug Hunter recognition, community event formats
+- Full launch checklist (pre-launch, at-launch, first 30 days)
+
+**Channel Descriptions (`marketing/outputs/discord-channel-descriptions.md`):**
+- 27 channel topic descriptions, all 60-120 characters
+- Copy-library compliant (no banned words, approved terminology only)
+
+**Pinned Messages (`marketing/outputs/discord-pinned-messages.md`):**
+- 24 production-ready pinned messages across 16 channels
+- All within Discord's 2,000-character limit
+- Includes: welcome flow, full rules, 10-entry FAQ, decay explainer, bug report template, proposal template, node operator guide, and anti-scam warnings
+- Copy-library compliant throughout
+
+**Next steps:**
+- User to create Discord server + bot application
+- Build Python setup script to provision server via Discord API
+- Draft blog/updates section for rillcoin.com
+
 ### 2026-02-17 - Phase 3+4: Production Readiness & Testnet Prep
 
 **Phase 3 — Core Infrastructure:**
