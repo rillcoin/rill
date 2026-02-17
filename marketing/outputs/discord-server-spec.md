@@ -183,6 +183,10 @@ Permissions: Verified members post bot commands here. Bots post here.
 | `#bot-commands` | All non-faucet bot commands invoked here. Keeps `#general` clean. | Verified members | No slowmode |
 | `#github-feed` | Automated GitHub commit, PR, and release notifications via webhook. | Bot only (GitHub webhook) | Read-only except webhook |
 | `#twitter-feed` | Automated X/Twitter post feed via webhook or bot. | Bot only | Read-only except bot |
+| `#crypto-news` | Aggregated crypto industry news from CoinDesk, The Block, Bitcoin Magazine, Decrypt. Filtered to PoW, monetary policy, and protocol design topics. | Bot only (MonitoRSS) | Read-only |
+| `#price-ticker` | Auto-updating price data for BTC, ETH, and top 20 by market cap. RILL added post-mainnet listing. | Bot only (CoinGecko Bot) | Read-only |
+| `#regulatory-watch` | Low-volume feed of regulatory developments from SEC, CFTC, and industry sources. ~2-5 posts/week. | Bot only (MonitoRSS) | Read-only |
+| `#whale-alerts` | Large transaction alerts on BTC, ETH, and major chains. Stub pre-mainnet; RILL tracking added post-mainnet. | Bot only (Whale Alert Bot) | Read-only |
 
 ---
 
@@ -502,6 +506,73 @@ Zapier Zap: "Twitter > New Tweet by Specific User" → "Discord > Send Channel M
 Make is the more cost-effective option for low-volume accounts (free tier covers ~1,000 operations/month). Zapier is easier to configure.
 
 **Note:** Twitter/X API access now requires a paid developer account. Budget approximately $100/month for Basic API access, or use a social listening tool with built-in Discord integration such as Mention or Hootsuite.
+
+---
+
+### MonitoRSS — RSS News Feed Bot
+
+**Use:** Automated delivery of curated crypto industry news and regulatory updates to `#crypto-news` and `#regulatory-watch`
+
+**Why MonitoRSS:** Open-source, self-hostable, 7+ years of uptime, 500M+ articles delivered. Full control over sources and filtering — no spam or shilling risk from bot-curated feeds. The most flexible RSS-to-Discord bot available. One bot instance powers multiple channels with separate feed configurations.
+
+**Configuration:**
+
+`#crypto-news` feeds:
+- CoinDesk RSS (filtered to: proof-of-work, Layer 1, monetary policy, protocol)
+- The Block RSS (filtered to: Bitcoin, mining, consensus, protocol design)
+- Bitcoin Magazine RSS (all articles)
+- Decrypt RSS (filtered to: Bitcoin, mining, Layer 1)
+
+`#regulatory-watch` feeds:
+- SEC Litigation Releases RSS (official SEC.gov feed)
+- CFTC News RSS (official CFTC.gov feed)
+- CoinDesk — Policy and Regulation tag RSS
+- The Block — Regulation tag RSS
+
+Filtering: MonitoRSS supports keyword filters per feed. Configure include-filters for relevant terms (proof-of-work, mining, consensus, Layer 1, regulation, SEC, CFTC, MiCA) and exclude-filters for noise (NFT launches, meme coins, airdrops).
+
+**Invite:** Add MonitoRSS from https://monitorss.xyz and configure feeds via the web dashboard.
+
+**Cost:** Free for up to 5 feeds. The free tier covers the initial configuration. Self-hosting removes all limits.
+
+---
+
+### CoinGecko Bot — Price Data Feed
+
+**Use:** Automated price summaries for top cryptocurrencies in `#price-ticker`
+
+**Why CoinGecko Bot:** Official bot from CoinGecko, the most widely used crypto data aggregator. Free tier supports 4000+ coins, slash commands, and formatted embeds. No API key required for the Discord bot.
+
+**Configuration:**
+
+- Channel: `#price-ticker`
+- Tracked assets: BTC, ETH, and top 20 by market cap
+- Schedule: Configure `/price` auto-posting at a regular interval (e.g., every 4-6 hours)
+- Post-mainnet: Add RILL to tracked assets once listed on CoinGecko
+- Slash commands available in `#bot-commands` for on-demand queries: `/price bitcoin`, `/price ethereum`
+
+**Invite:** Add from the CoinGecko Bot Discord listing. No API key required.
+
+**Cost:** Free.
+
+---
+
+### Whale Alert Bot — Large Transaction Monitoring
+
+**Use:** Alerts for large cryptocurrency transactions on major chains in `#whale-alerts`
+
+**Why Whale Alert:** The standard for on-chain large transaction monitoring. Free tier tracks BTC, ETH, and major chains. Provides context for market movements without requiring custom infrastructure.
+
+**Configuration:**
+
+- Channel: `#whale-alerts`
+- Pre-mainnet: Channel is a stub with a pinned explainer. Activate whale tracking when the community reaches sufficient size to benefit from the data.
+- Post-mainnet: Add RillCoin-specific large movement alerts via custom bot integration (leveraging the RillCoin node RPC).
+- Threshold: Configure minimum transaction size to avoid noise (e.g., BTC > 100 BTC, ETH > 1000 ETH).
+
+**Invite:** Add from the Whale Alert Discord listing.
+
+**Cost:** Free tier covers the core use case. Premium unlocks lower thresholds and more chains — consider after mainnet.
 
 ---
 

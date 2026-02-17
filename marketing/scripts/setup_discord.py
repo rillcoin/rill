@@ -599,6 +599,30 @@ SERVER_STRUCTURE = [
                 "topic": "Automated feed of posts from @RillCoin on X.",
                 "perm_template": "read_only",
             },
+            {
+                "name": "crypto-news",
+                "type": CH_TEXT,
+                "topic": "Aggregated crypto industry news from curated RSS sources. Powered by MonitoRSS.",
+                "perm_template": "read_only",
+            },
+            {
+                "name": "price-ticker",
+                "type": CH_TEXT,
+                "topic": "Auto-updating price data for BTC, ETH, and top 20 by market cap. Powered by CoinGecko Bot.",
+                "perm_template": "read_only",
+            },
+            {
+                "name": "regulatory-watch",
+                "type": CH_TEXT,
+                "topic": "Crypto regulation and legal news from SEC, CFTC, and industry sources. Powered by MonitoRSS.",
+                "perm_template": "read_only",
+            },
+            {
+                "name": "whale-alerts",
+                "type": CH_TEXT,
+                "topic": "Large transaction alerts on major chains. Powered by Whale Alert Bot.",
+                "perm_template": "read_only",
+            },
         ],
     },
 ]
@@ -1407,6 +1431,88 @@ Estimates the decay schedule for a given balance based on published protocol con
 /report
 ```
 Opens a report flow for rule violations, scam attempts, or impersonation. Reports go to the moderation team.""",
+    ],
+    "crypto-news": [
+        """\
+## #crypto-news — Industry News Feed
+
+This channel delivers curated crypto industry news from established sources. It is automated and read-only.
+
+---
+
+**Sources:**
+- CoinDesk
+- The Block
+- Bitcoin Magazine
+- Decrypt
+
+**Filters:** Content is filtered to topics relevant to RillCoin: proof-of-work, monetary policy, protocol design, and Layer 1 developments. General altcoin news and token launch announcements are excluded.
+
+**Bot:** MonitoRSS — an open-source RSS-to-Discord bot with 7+ years of uptime and 500M+ articles delivered. We use it instead of dedicated crypto news bots to maintain full control over sources and avoid spam or shilling from bot-curated feeds.
+
+---
+
+**This channel is read-only.** Members cannot post here. To discuss a news item, share the link in #general or #price-and-markets.""",
+    ],
+    "price-ticker": [
+        """\
+## #price-ticker — Top 20 Crypto Prices
+
+This channel provides auto-updating price data for BTC, ETH, and the top 20 cryptocurrencies by market cap. It is automated and read-only.
+
+---
+
+**Bot:** CoinGecko Bot — the official CoinGecko Discord bot. Free tier, supports 4000+ coins, formatted embeds, and scheduled price summaries.
+
+**What is tracked:** Bitcoin, Ethereum, and the top 20 by market cap. Once RillCoin is listed on exchanges post-mainnet, RILL will be added to the tracked assets.
+
+**Complement:** This channel provides raw price data. For market discussion, use #price-and-markets.
+
+---
+
+**This channel is read-only.** Members cannot post here. Nothing posted in this channel constitutes financial advice. RillCoin does not make price predictions or financial promises.""",
+    ],
+    "regulatory-watch": [
+        """\
+## #regulatory-watch — Crypto Regulation and Legal News
+
+This channel delivers low-volume regulatory and legal developments relevant to the cryptocurrency industry. It is automated and read-only.
+
+---
+
+**Sources:**
+- SEC Litigation Releases (official RSS)
+- CFTC News (official RSS)
+- CoinDesk — Policy and Regulation
+- The Block — Regulation
+
+**Volume:** Expect 2-5 posts per week. This is intentionally low-noise.
+
+**Bot:** MonitoRSS — the same bot that powers #crypto-news, configured with separate feeds for regulatory content.
+
+---
+
+**Why this channel exists:** RillCoin takes regulatory context seriously. This feed is useful for governance participants, protocol designers, and institutional observers who need to stay informed about the legal landscape affecting proof-of-work cryptocurrencies.
+
+**This channel is read-only.** To discuss regulatory developments, use #governance-general or #general.""",
+    ],
+    "whale-alerts": [
+        """\
+## #whale-alerts — Large Transaction Monitoring
+
+This channel will display alerts when large cryptocurrency transactions occur on major chains. It is automated and read-only.
+
+---
+
+**Bot:** Whale Alert Bot — free tier, tracks large transactions on BTC, ETH, and major chains.
+
+**Current status:** This channel is a stub during the pre-mainnet phase. Whale tracking for major chains will be activated when the community finds it useful. Post-mainnet, RillCoin-specific large movement alerts will be added via a custom bot integration.
+
+**Why this channel exists:** Large transaction monitoring provides relevant market intelligence for a proof-of-work community. Tracking whale movements on BTC and ETH helps contextualize broader market dynamics.
+
+---
+
+**This channel is read-only.** To discuss large transactions or market movements, use #price-and-markets.""",
     ],
 }
 
