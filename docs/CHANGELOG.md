@@ -64,9 +64,14 @@
 - Founder role assigned, role hierarchy ordered
 - URL placeholders replaced with GitHub links in all pinned messages
 
+**Forum Channels Configured:**
+- #bug-reports: 7 tags (Critical/High/Medium/Low/Confirmed/Fixed/Won't Fix), bug report template post
+- #proposals: 10 tags (Draft/Discussion/Under Review/Accepted/Rejected/Implemented + topic tags), RCP template post
+- #research: 7 tags (Decay Mechanics/Economic Model/Consensus/Cryptography/External Paper/Analysis/Question), posting guidelines
+- #introductions: 4 tags (Developer/Miner/Researcher/Community)
+
 **Next steps:**
 - Post X thread manually
-- Forum channel templates (#bug-reports, #proposals, #research)
 - Update X bio re: dev fund transparency ("No premine" vs 5% dev allocation)
 - Build testnet faucet bot
 - Consider Wick/MEE6 premium if server scales past 500 members
