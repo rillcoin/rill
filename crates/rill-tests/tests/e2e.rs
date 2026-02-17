@@ -5,12 +5,10 @@
 //! coinbase maturity, difficulty adjustment, decay pool queries, and
 //! wallet operations.
 //!
-//! NOTE: The current coinbase txid computation uses a witness-stripped
-//! canonical form that excludes the signature field (which carries the
-//! height marker). This means coinbase transactions with the same reward
-//! amount AND same pubkey_hash produce identical txids. To avoid UTXO
-//! collisions in tests, each block uses a unique miner pubkey_hash.
-//! This collision is tracked as a known protocol issue (VULN-COINBASE-TXID).
+//! Coinbase txid uniqueness is guaranteed because the consensus engine sets
+//! `lock_time: height` on each coinbase transaction. Since `lock_time` is
+//! included in the witness-stripped txid computation, each coinbase txid is
+//! unique per block height (VULN-COINBASE-TXID fix).
 
 use std::sync::Arc;
 
@@ -34,20 +32,17 @@ fn test_node() -> (Arc<Node>, tempfile::TempDir) {
     (node, dir)
 }
 
-/// Mine the next block on a node using a unique miner address derived from
-/// the current chain height. This avoids coinbase txid collisions (see
-/// module doc comment).
+/// Mine the next block on a node using a fixed miner address.
+///
+/// Coinbase txid uniqueness is guaranteed by `lock_time: height` set in
+/// the consensus engine, so a fixed address can be reused across blocks.
 fn mine_next_block(node: &Node) -> Block {
-    let (height, tip_hash) = node.chain_tip().unwrap();
+    let (_height, tip_hash) = node.chain_tip().unwrap();
     let tip_header = node.get_block_header(&tip_hash).unwrap().unwrap();
     let next_ts = tip_header.timestamp + BLOCK_TIME_SECS;
 
-    // Use a unique miner pubkey_hash per height to produce unique coinbase txids.
-    // Without this, all coinbase txids at the same reward level collide because
-    // the witness-stripped canonical form excludes the height-bearing signature.
-    let miner_seed = ((height + 1) & 0xFF) as u8;
     let mut block = node
-        .create_block_template(&pkh(miner_seed), next_ts)
+        .create_block_template(&pkh(0xAB), next_ts)
         .unwrap();
     assert!(mine_block(&mut block, u64::MAX));
     block
@@ -87,7 +82,8 @@ fn e2e_mine_five_blocks() {
         "circulating supply should be positive after mining"
     );
 
-    // Verify UTXOs exist: genesis coinbase + 5 mined coinbases (each with unique pkh)
+    // Verify UTXOs exist: genesis coinbase + 5 mined coinbases.
+    // Each coinbase has a unique txid because lock_time is set to the block height.
     let utxos = node.iter_utxos().unwrap();
     assert_eq!(
         utxos.len(),
@@ -593,10 +589,10 @@ fn e2e_chain_tip_consistency() {
 }
 
 // ======================================================================
-// E2E Test 15: Coinbase txid collision vulnerability
-// Regression test: demonstrates that coinbase transactions with the same
-// reward and pubkey_hash produce identical txids, causing UTXO overwrites.
-// Attack vector: VULN-COINBASE-TXID.
+// E2E Test 15: Coinbase txid uniqueness regression test
+// Verifies that coinbase transactions with the same reward and pubkey_hash
+// produce distinct txids because lock_time is set to the block height.
+// Fix for: VULN-COINBASE-TXID.
 // ======================================================================
 
 #[test]
@@ -611,20 +607,19 @@ fn e2e_vuln_coinbase_txid_collision() {
         node.process_block(&block).unwrap();
     }
 
-    // Due to the witness-stripped txid, all coinbase txids are identical
-    // (same outpoint, same value, same pubkey_hash, same lock_time).
-    // Only the LAST coinbase UTXO survives in the UTXO set.
+    // With the VULN-COINBASE-TXID fix, each coinbase sets lock_time = height.
+    // Since lock_time IS included in the txid computation, each coinbase txid
+    // is unique per block height — all 3 UTXOs survive in the UTXO set.
     let utxos = node.get_utxos_by_address(&miner).unwrap();
     assert_eq!(
         utxos.len(),
-        1,
-        "VULN-COINBASE-TXID: only 1 UTXO survives due to txid collision (expected 3)"
+        3,
+        "VULN-COINBASE-TXID fixed: all 3 UTXOs must be distinct (got {})",
+        utxos.len()
     );
 
-    // The surviving UTXO should be from the last block (height 3)
-    let entry = &utxos[0].1;
-    assert_eq!(
-        entry.block_height, 3,
-        "surviving UTXO should be from the latest block"
-    );
+    // Verify that all 3 UTXOs are at different block heights
+    let mut heights: Vec<u64> = utxos.iter().map(|(_, e)| e.block_height).collect();
+    heights.sort();
+    assert_eq!(heights, vec![1, 2, 3], "UTXOs should be at heights 1, 2, 3");
 }

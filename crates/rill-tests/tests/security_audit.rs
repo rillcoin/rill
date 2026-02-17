@@ -1075,7 +1075,7 @@ fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transa
             value,
             pubkey_hash,
         }],
-        lock_time: 0,
+        lock_time: height,
     }
 }
 

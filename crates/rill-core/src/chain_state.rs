@@ -386,6 +386,9 @@ mod tests {
     }
 
     /// Create a coinbase with unique data to produce a unique txid.
+    ///
+    /// Sets `lock_time: height` matching the production consensus engine so that
+    /// coinbases at different heights always have distinct txids.
     fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
         Transaction {
             version: 1,
@@ -398,7 +401,7 @@ mod tests {
                 value,
                 pubkey_hash,
             }],
-            lock_time: 0,
+            lock_time: height,
         }
     }
 

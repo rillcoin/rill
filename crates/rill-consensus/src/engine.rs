@@ -217,7 +217,7 @@ impl BlockProducer for ConsensusEngine {
                 value: total_reward,
                 pubkey_hash: *coinbase_pubkey_hash,
             }],
-            lock_time: 0,
+            lock_time: height,
         };
 
         let txid = coinbase
@@ -376,7 +376,7 @@ mod tests {
                     value: reward::block_reward(height),
                     pubkey_hash: Hash256([0xAA; 32]),
                 }],
-                lock_time: 0,
+                lock_time: height,
             };
             let txid = coinbase.txid().unwrap();
             let mr = merkle::merkle_root(&[txid]);

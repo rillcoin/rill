@@ -248,10 +248,29 @@ impl Node {
         let chain_state = NodeChainState::new(Arc::clone(&self.storage));
         chain_state.validate_transaction(tx)?;
 
-        // Insert into mempool with fee=0 (proper fee calculation in future).
+        // Compute fee: sum of input UTXO values minus sum of output values.
+        let mut input_sum: u64 = 0;
+        for input in &tx.inputs {
+            if let Some(utxo) = chain_state.get_utxo(&input.previous_output)? {
+                input_sum = input_sum
+                    .checked_add(utxo.output.value)
+                    .ok_or_else(|| RillError::Storage("input sum overflow".into()))?;
+            }
+        }
+        let output_sum = tx
+            .total_output_value()
+            .ok_or(TransactionError::ValueOverflow)?;
+        let fee = input_sum
+            .checked_sub(output_sum)
+            .ok_or(TransactionError::InsufficientFunds {
+                have: input_sum,
+                need: output_sum,
+            })?;
+
+        // Insert into mempool with the computed fee.
         let txid = {
             let mut pool = self.mempool.lock();
-            pool.insert(tx.clone(), 0)
+            pool.insert(tx.clone(), fee)
                 .map_err(|e| RillError::Storage(e.to_string()))?
         };
 

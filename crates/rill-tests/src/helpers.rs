@@ -9,6 +9,9 @@ pub fn pkh(seed: u8) -> Hash256 {
 }
 
 /// Create a coinbase transaction with a unique height marker.
+///
+/// Sets `lock_time: height` so that each coinbase produces a distinct txid
+/// per block height, matching the production consensus engine behaviour.
 pub fn make_coinbase(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
     Transaction {
         version: 1,
@@ -21,7 +24,7 @@ pub fn make_coinbase(value: u64, pubkey_hash: Hash256, height: u64) -> Transacti
             value,
             pubkey_hash,
         }],
-        lock_time: 0,
+        lock_time: height,
     }
 }
 
