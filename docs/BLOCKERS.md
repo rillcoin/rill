@@ -3,21 +3,18 @@
 Cross-agent blockers and unresolved issues. Updated at session end.
 
 ## Active Blockers
-
-### VULN-COINBASE-TXID (discovered 2026-02-17)
-**Severity:** High — causes UTXO overwrites in storage
-**Description:** Witness-stripped `txid()` excludes the coinbase signature field where block height is encoded. All coinbase transactions at the same reward level paying the same address produce identical txids, causing later coinbases to overwrite earlier ones in the UTXO set.
-**Impact:** Miners reusing the same address lose prior coinbase UTXOs.
-**Fix:** Commit block height to a non-witness field (e.g., `lock_time` or a dedicated `coinbase_height` field).
-**Regression test:** `e2e_vuln_coinbase_txid_collision` in `crates/rill-tests/tests/e2e.rs`
-**Owner:** core agent
-
-### Node::process_transaction fee=0 incompatibility
-**Severity:** Medium — prevents RPC transaction submission
-**Description:** `Node::process_transaction()` in `node.rs` inserts mempool entries with `fee: 0`, which now fails with the new MIN_TX_FEE enforcement (1000 rills minimum).
-**Impact:** RPC `sendrawtransaction` will fail until fee calculation is added to `process_transaction()`.
-**Fix:** Compute actual fee from inputs-outputs before mempool insertion.
-**Owner:** node agent
+(none)
 
 ## Resolved
-(none yet)
+
+### VULN-COINBASE-TXID (discovered 2026-02-17, resolved 2026-02-17)
+**Severity:** High — caused UTXO overwrites in storage
+**Description:** Witness-stripped `txid()` excluded the coinbase signature field where block height was encoded. Coinbase transactions with the same reward+pubkey_hash produced identical txids.
+**Resolution:** Coinbase transactions now set `lock_time = height`. Since `lock_time` is included in the txid computation, each coinbase at a distinct height produces a distinct txid. Updated all `make_coinbase_unique` helpers and E2E regression test.
+**Commit:** `89f7eca`
+
+### Node::process_transaction fee=0 incompatibility (discovered 2026-02-17, resolved 2026-02-17)
+**Severity:** Medium — prevented RPC transaction submission
+**Description:** `Node::process_transaction()` inserted mempool entries with `fee: 0`, failing MIN_TX_FEE enforcement.
+**Resolution:** Node now computes actual fee (`input_sum - output_sum`) with checked arithmetic before mempool insertion.
+**Commit:** `89f7eca`
