@@ -229,6 +229,14 @@ impl BlockProducer for ConsensusEngine {
         let total_reward = self.total_reward(height)?;
         let difficulty_target = self.difficulty_target(height)?;
 
+        // Ensure timestamp is strictly after the parent's to pass validation.
+        let parent_header = self
+            .chain_state
+            .get_block_header(&tip_hash)
+            .map_err(|_| BlockError::InvalidPrevHash)?
+            .ok_or(BlockError::InvalidPrevHash)?;
+        let timestamp = timestamp.max(parent_header.timestamp + 1);
+
         // Encode height in coinbase for uniqueness (truncated to MAX_COINBASE_DATA)
         let height_bytes = height.to_le_bytes();
         let len = height_bytes.len().min(MAX_COINBASE_DATA);
@@ -808,10 +816,11 @@ mod tests {
         let engine = make_engine_at_time(cs, current_time);
 
         let pkh = Hash256([0xBB; 32]);
-        // Timestamp same as parent (not after)
+        // Build a valid template, then force its timestamp to equal the parent's.
         let mut block = engine
-            .create_block_template(&pkh, tip_ts)
+            .create_block_template(&pkh, tip_ts + BLOCK_TIME_SECS)
             .unwrap();
+        block.header.timestamp = tip_ts; // same as parent (not after)
         // Fix merkle root
         let txids: Vec<Hash256> = block
             .transactions
