@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-02-17 - Privacy & Git Hygiene
+- Rewrote entire git history to replace personal author name/email with "rillcoin <dev@rillcoin.com>"
+- Set per-repo git config for anonymous commits going forward
+- Cleaned up Discord #github-feed webhook messages that contained personal info
+- Verified no personal identifiers remain in the codebase
+
 ### 2026-02-17 - Phase 5: Testnet Launch Readiness (Complete)
 
 **Phase 5a — Full Sync Integration & Chain Reorg:**
