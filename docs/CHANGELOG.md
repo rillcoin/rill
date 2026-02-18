@@ -25,6 +25,27 @@
 **Milestone:**
 - First-ever RillCoin transaction confirmed on testnet — celebrated.
 
+### 2026-02-18 - Testnet Redeployment & Miner Timestamp Fix
+
+**Timestamp Fix:**
+- Diagnosed miner stuck loop: `create_block_template` could produce timestamps equal to the parent's when blocks mined faster than 1 per second, causing `TimestampNotAfterParent` validation rejection
+- Fixed `create_block_template` to ensure `timestamp >= parent_timestamp + 1`
+- Miner no longer enters tight retry loops on fast-mining chains
+
+**Fresh Testnet Deployment:**
+- Wiped chain data (correct path: `~/.local/share/rill/testnet/chaindata`)
+- Rebuilt and restarted both nodes with timestamp fix
+- Chain producing blocks: 72 blocks mined in ~20s (initial convergence), block 73 found at 16min (difficulty overshooting then recovering)
+- Difficulty converging: started at 15T, clamped down to ~1.1T, now adjusting back up via LWMA
+- Both nodes peered and synced at height 73
+- Miner running with `stdbuf -oL` for real-time log output
+
+**Operational Notes:**
+- Data directory on Linux: `~/.local/share/rill/testnet/chaindata` (not `~/.rill/`)
+- Node flag is `--testnet` (not `--network testnet`)
+- New peer IDs generated on each fresh start (keypair not persisted)
+- Use `stdbuf -oL` with nohup to avoid log buffering
+
 ### 2026-02-18 - DigitalOcean Testnet Deployment & Difficulty Fix
 
 **Testnet Infrastructure:**
