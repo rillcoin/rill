@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-02-18 - Marketing: HyperLiquid Launch Planning & Discord Bot Strategy
+
+**HyperLiquid Launch Mechanics:**
+- Documented HIP-1 (spot token registration) and HIP-2 (Hyperliquidity seeding) process
+- Corrected tokenomics model to match protocol constants: 21,000,000 RILL (not 1B)
+- Dev fund premine: 1,050,000 RILL (5%) minted at genesis — effective total ~22,050,000 RILL
+- Modeled HIP-2 seeding scenarios: 5% of supply (~1.1M RILL) paired against USDC to set opening price band
+- Illustrated FDV range ($4.4M–$22M) depending on USDC seed depth
+
+**Funding Strategy:**
+- Outlined seed round path: sell investor allocation via SAFT pre-launch
+- Identified target VCs: Multicoin Capital, Delphi Ventures, Robot Ventures, Dragonfly
+- Recommended HyperLiquid Ecosystem Fund grant application as first step
+- KOL/angel round proposed for distribution value alongside capital
+
+**Discord Bot Planning:**
+- Recommended stack: MEE6 (moderation) + Collab.Land (token gating) + custom RILL bot
+- Custom bot spec: `/price`, `/supply`, `/decay`, `/faucet` commands via HyperLiquid public API
+- Noted risks of auto-engagement bots (ToS violations, credibility damage, regulatory exposure)
+
+**Milestone:**
+- First-ever RillCoin transaction confirmed on testnet — celebrated.
+
 ### 2026-02-18 - DigitalOcean Testnet Deployment & Difficulty Fix
 
 **Testnet Infrastructure:**
