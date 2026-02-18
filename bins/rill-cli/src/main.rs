@@ -865,7 +865,11 @@ fn parse_seed_input(input: &str) -> Result<Seed> {
 }
 
 /// Prompt for a password securely (no echo).
+/// Reads from `RILL_WALLET_PASSWORD` env var if set (for non-interactive use).
 fn prompt_password(prompt: &str) -> Result<String> {
+    if let Ok(pw) = std::env::var("RILL_WALLET_PASSWORD") {
+        return Ok(pw);
+    }
     rpassword::prompt_password(format!("{}: ", prompt)).context("Failed to read password")
 }
 
