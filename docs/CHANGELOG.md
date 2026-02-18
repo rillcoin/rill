@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-02-18 - Discord Server Hardening & Onboarding
+- Fixed channel permissions: @everyone Send Messages, Create Private Threads, Send in Threads removed at role level
+- Audited all 36 channels via API — confirmed read-only, community, governance, and team permissions are correct
+- Set up Discord native Onboarding flow (5-step: safety check, default channels, customisation question, server guide, review)
+- Onboarding assigns Member role on completion — replaced Carl-bot autorole
+- Configured Carl-bot verification reaction role (created, debugged, replaced with onboarding)
+- Removed Carl-bot autorole for Member (onboarding handles it now)
+- Added @everyone send override on #general for onboarding chattable requirement
+- Cleaned up #roles-and-verification: removed broken verify embed, kept notification ping panel
+- Deleted Discord messages exposing personal name ("Matt du Jardin achievements")
+- Recreated #welcome as text channel (was incorrectly Forum type)
+
 ### 2026-02-17 - Privacy & Git Hygiene
 - Rewrote entire git history to replace personal author name/email with "rillcoin <dev@rillcoin.com>"
 - Set per-repo git config for anonymous commits going forward
