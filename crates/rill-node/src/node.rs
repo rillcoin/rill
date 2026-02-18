@@ -291,6 +291,42 @@ impl Node {
         Ok(node)
     }
 
+    /// Create a node without networking for use in tests.
+    ///
+    /// Identical to [`without_network`] except the consensus engine uses
+    /// `u64::MAX` as its initial difficulty target, which lets tests build
+    /// mock blocks without having to mine against a real PoW threshold.
+    #[cfg(test)]
+    pub fn without_network_for_test(config: NodeConfig) -> Result<Arc<Self>, RillError> {
+        let store = RocksStore::open(config.db_path())?;
+        let storage = Arc::new(RwLock::new(store));
+
+        let chain_state: Arc<dyn ChainState> =
+            Arc::new(NodeChainState::new(Arc::clone(&storage)));
+        let decay: Arc<dyn DecayCalculator> = Arc::new(DecayEngine::new());
+        let consensus = ConsensusEngine::new(Arc::clone(&chain_state), decay)
+            .with_initial_target(u64::MAX);
+        let mempool = Mutex::new(Mempool::with_defaults());
+
+        let node = Arc::new(Self {
+            storage,
+            mempool,
+            consensus,
+            sync_manager: Mutex::new(SyncManager::new()),
+            network: None,
+            event_rx: None,
+            query_rx: None,
+            config,
+            metrics: NodeMetrics::new(),
+            orphan_blocks: Mutex::new(HashMap::new()),
+            orphan_txs: Mutex::new(HashMap::new()),
+            is_ibd: AtomicBool::new(false),
+            best_peer_height: AtomicU64::new(0),
+        });
+
+        Ok(node)
+    }
+
     /// Returns `true` if the node is currently in Initial Block Download mode.
     ///
     /// During IBD incoming transactions from peers are ignored and transaction
@@ -1180,13 +1216,16 @@ mod tests {
     use rill_core::genesis;
 
     /// Create a test node backed by a temp directory, without network.
+    ///
+    /// Uses `without_network_for_test` so the consensus engine accepts blocks
+    /// built with `difficulty_target: u64::MAX` without requiring real PoW mining.
     fn test_node() -> (Arc<Node>, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
         let config = NodeConfig {
             data_dir: dir.path().to_path_buf(),
             ..NodeConfig::default()
         };
-        let node = Node::without_network(config).unwrap();
+        let node = Node::without_network_for_test(config).unwrap();
         (node, dir)
     }
 
@@ -1460,13 +1499,13 @@ mod tests {
 
     #[test]
     fn sync_state_is_idle_in_networkless_node() {
-        // Verify that without_network() also initialises the sync manager correctly.
+        // Verify that without_network_for_test() also initialises the sync manager correctly.
         let dir = tempfile::tempdir().unwrap();
         let config = NodeConfig {
             data_dir: dir.path().to_path_buf(),
             ..NodeConfig::default()
         };
-        let node = Node::without_network(config).unwrap();
+        let node = Node::without_network_for_test(config).unwrap();
         assert_eq!(node.sync_state(), SyncState::Idle);
     }
 
@@ -1485,7 +1524,7 @@ mod tests {
             data_dir: staging_dir.path().to_path_buf(),
             ..NodeConfig::default()
         };
-        let staging = Node::without_network(staging_cfg).unwrap();
+        let staging = Node::without_network_for_test(staging_cfg).unwrap();
 
         // First, replay whatever blocks are already in `node` into the staging
         // node so we share the same base tip.

@@ -46,7 +46,7 @@ fn build_genesis() -> GenesisData {
             prev_hash: Hash256::ZERO,
             merkle_root: mr,
             timestamp: GENESIS_TIMESTAMP,
-            difficulty_target: u64::MAX,
+            difficulty_target: crate::constants::TESTNET_INITIAL_TARGET,
             nonce: 0,
         },
         transactions: vec![coinbase],
@@ -197,8 +197,11 @@ mod tests {
     }
 
     #[test]
-    fn genesis_header_max_difficulty() {
-        assert_eq!(genesis_block().header.difficulty_target, u64::MAX);
+    fn genesis_header_initial_difficulty() {
+        assert_eq!(
+            genesis_block().header.difficulty_target,
+            crate::constants::TESTNET_INITIAL_TARGET
+        );
     }
 
     // --- Merkle root ---

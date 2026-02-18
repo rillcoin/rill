@@ -531,12 +531,10 @@ async fn wallet_balance(args: BalanceArgs) -> Result<()> {
         let mut params = ArrayParams::new();
         params.insert(addr_str.clone()).unwrap();
 
-        eprintln!("[debug] scanning address {i}: {addr_str}");
         let utxo_jsons: Vec<serde_json::Value> = client
             .request("getutxosbyaddress", params)
             .await
             .with_context(|| format!("RPC getutxosbyaddress failed for {addr_str}"))?;
-        eprintln!("[debug] got {} UTXOs for {addr_str}", utxo_jsons.len());
 
         for utxo_json in utxo_jsons {
             let txid_hex = utxo_json["txid"].as_str().unwrap_or_default();

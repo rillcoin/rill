@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### 2026-02-18 - DigitalOcean Testnet Deployment & Difficulty Fix
+
+**Testnet Infrastructure:**
+- Created `infra/do-testnet.sh` — DigitalOcean provisioner for 2-node testnet (nyc1, $24/mo)
+- Deployed rill-node0 (seed/miner) at 206.189.202.181 and rill-node1 (wallet) at 159.223.140.65
+- VPC 10.20.0.0/24 with firewall restricting P2P to internal, SSH from anywhere
+- Cloud-init builds from source via GitHub deploy key (private repo)
+- Nodes peered over libp2p (Kademlia + Gossipsub) with multiaddr bootstrap
+
+**First Blocks & Transaction:**
+- Mined 73 blocks on testnet, confirmed block production and UTXO creation
+- Sent first-ever RillCoin transaction: 100 RILL from miner to wallet node
+- Confirmed balance: 3,650 RILL (73 coinbase × 50 RILL) on miner wallet
+
+**Difficulty Bootstrapping Fix:**
+- Diagnosed runaway difficulty: u64::MAX genesis target caused 73 instant blocks, then 4^73 clamp made mining impossible
+- Added `TESTNET_INITIAL_TARGET = 15_000_000_000_000` calibrated for ~20K H/s single miner (~60s blocks)
+- Updated genesis block, difficulty module, and consensus engine to use calibrated target
+- Added `initial_target_override` with `testing` feature flag for cross-crate test access
+- All 144 workspace tests passing
+
+**CLI Fixes:**
+- Added `RILL_WALLET_PASSWORD` env var for non-interactive wallet operations (SSH/scripts)
+- Fixed wallet address persistence — `rill-cli address` now saves after derivation
+- Fixed balance scan to auto-derive initial address when address_count is 0
+- Removed temporary debug logging from balance command
+
 ### 2026-02-18 - Azure Testnet Infrastructure (Partial)
 - Created `infra/azure-testnet.sh` -- full Azure CLI provisioner for 4-node testnet
 - Created `infra/README.md` with setup guide

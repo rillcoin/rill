@@ -19,6 +19,9 @@ randomx-rs = { workspace = true, optional = true }
 
 [features]
 randomx = ["dep:randomx-rs"]
+# Expose test-only builder helpers (e.g. `with_initial_target`) to downstream
+# crates that need them in their own test suites.
+testing = []
 
 [dev-dependencies]
 proptest.workspace = true

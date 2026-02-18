@@ -132,6 +132,13 @@ pub const BLOCKS_PER_YEAR: u64 = 525_960;
 pub const MAGIC_BYTES: [u8; 4] = [0x52, 0x49, 0x4C, 0x4C]; // "RILL"
 pub const ADDRESS_PREFIX: &str = "rill1";
 pub const DIFFICULTY_WINDOW: u64 = 60;
+
+/// Initial difficulty target for testnet genesis.
+///
+/// Calibrated for a single miner at ~20K H/s to produce one block per ~60s.
+/// 2^64 / (20_000 H/s × 60s) ≈ 15.4 trillion. Rounded up for headroom.
+/// The adjustment algorithm will converge from here regardless of actual hashrate.
+pub const TESTNET_INITIAL_TARGET: u64 = 15_000_000_000_000;
 pub const DECAY_R_MAX_PPB: u64 = 1_500_000_000;
 pub const DECAY_PRECISION: u64 = 10_000_000_000;
 pub const DECAY_C_THRESHOLD_PPB: u64 = 1_000_000;

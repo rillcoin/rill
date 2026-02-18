@@ -31,6 +31,8 @@ thiserror.workspace = true
 tempfile.workspace = true
 libp2p.workspace = true
 criterion.workspace = true
+# Enable test-only helpers on the consensus engine (e.g. `with_initial_target`).
+rill-consensus = { path = "../rill-consensus", features = ["testing"] }
 
 [[bench]]
 name = "node_benches"

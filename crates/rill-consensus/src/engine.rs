@@ -32,6 +32,9 @@ pub struct ConsensusEngine {
     chain_state: Arc<dyn ChainState>,
     decay: Arc<dyn DecayCalculator>,
     clock: Box<dyn Fn() -> u64 + Send + Sync>,
+    /// Override the initial difficulty target for heights 0 and 1.
+    /// If `None`, uses `TESTNET_INITIAL_TARGET` from rill-core constants.
+    initial_target_override: Option<u64>,
     #[cfg(feature = "randomx")]
     randomx_validator: crate::randomx::RandomXValidator,
 }
@@ -67,6 +70,7 @@ impl ConsensusEngine {
                     .unwrap_or_default()
                     .as_secs()
             }),
+            initial_target_override: None,
         }
     }
 
@@ -90,7 +94,23 @@ impl ConsensusEngine {
             chain_state,
             decay,
             clock: Box::new(clock),
+            initial_target_override: None,
         }
+    }
+
+    /// Override the initial difficulty target used for heights 0 and 1.
+    ///
+    /// This is intended for testing, where `u64::MAX` allows any hash to
+    /// pass PoW so that tests can focus on other validation logic without
+    /// needing to mine real nonces.
+    ///
+    /// Available when the crate is compiled under test (`#[cfg(test)]`) or
+    /// when the `testing` feature is enabled, so downstream test suites can
+    /// use this builder without enabling it in production builds.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_initial_target(mut self, target: u64) -> Self {
+        self.initial_target_override = Some(target);
+        self
     }
 
     /// Compute the total block reward: base mining reward + decay pool release.
@@ -161,8 +181,15 @@ impl BlockProducer for ConsensusEngine {
     }
 
     fn difficulty_target(&self, height: u64) -> Result<u64, BlockError> {
+        // Use testnet initial target to prevent instant-mining of early blocks.
+        // The difficulty adjustment algorithm will converge to the correct
+        // target regardless of actual hashrate.
+        let initial_target = self
+            .initial_target_override
+            .unwrap_or(rill_core::constants::TESTNET_INITIAL_TARGET);
+
         if height <= 1 {
-            return Ok(difficulty::MAX_TARGET);
+            return Ok(initial_target);
         }
 
         // Get parent's difficulty target
@@ -178,10 +205,11 @@ impl BlockProducer for ConsensusEngine {
             .map_err(|_| BlockError::InvalidPrevHash)?
             .ok_or(BlockError::InvalidPrevHash)?;
 
-        let target = difficulty::target_for_height(
+        let target = difficulty::target_for_height_with_initial(
             height,
             parent_header.difficulty_target,
             |h| self.timestamp_at(h),
+            initial_target,
         );
 
         Ok(target)
@@ -501,6 +529,7 @@ mod tests {
             Arc::new(MockDecay),
             move || time,
         )
+        .with_initial_target(u64::MAX)
     }
 
     fn make_engine_at_time(cs: MockChainState, current_time: u64) -> ConsensusEngine {
@@ -509,6 +538,7 @@ mod tests {
             Arc::new(MockDecay),
             move || current_time,
         )
+        .with_initial_target(u64::MAX)
     }
 
     // ======================================================================
@@ -584,16 +614,50 @@ mod tests {
     // ======================================================================
 
     #[test]
-    fn difficulty_height_0_is_max() {
+    fn difficulty_height_0_is_testnet_initial() {
+        let cs = MockChainState::with_genesis();
+        // Use a production-like engine (no initial target override)
+        let time = cs.headers.last().unwrap().timestamp + BLOCK_TIME_SECS;
+        let engine = ConsensusEngine::with_clock(
+            Arc::new(cs),
+            Arc::new(MockDecay),
+            move || time,
+        );
+        assert_eq!(
+            engine.difficulty_target(0).unwrap(),
+            rill_core::constants::TESTNET_INITIAL_TARGET,
+        );
+    }
+
+    #[test]
+    fn difficulty_height_1_is_testnet_initial() {
+        let cs = MockChainState::with_genesis();
+        // Use a production-like engine (no initial target override)
+        let time = cs.headers.last().unwrap().timestamp + BLOCK_TIME_SECS;
+        let engine = ConsensusEngine::with_clock(
+            Arc::new(cs),
+            Arc::new(MockDecay),
+            move || time,
+        );
+        assert_eq!(
+            engine.difficulty_target(1).unwrap(),
+            rill_core::constants::TESTNET_INITIAL_TARGET,
+        );
+    }
+
+    #[test]
+    fn difficulty_height_0_respects_override() {
         let cs = MockChainState::with_genesis();
         let engine = make_engine(cs);
+        // make_engine sets initial target to u64::MAX
         assert_eq!(engine.difficulty_target(0).unwrap(), u64::MAX);
     }
 
     #[test]
-    fn difficulty_height_1_is_max() {
+    fn difficulty_height_1_respects_override() {
         let cs = MockChainState::with_genesis();
         let engine = make_engine(cs);
+        // make_engine sets initial target to u64::MAX
         assert_eq!(engine.difficulty_target(1).unwrap(), u64::MAX);
     }
 

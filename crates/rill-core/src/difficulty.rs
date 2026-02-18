@@ -100,8 +100,21 @@ pub fn target_for_height(
     parent_target: u64,
     get_timestamp: impl Fn(u64) -> u64,
 ) -> u64 {
+    target_for_height_with_initial(height, parent_target, get_timestamp, MAX_TARGET)
+}
+
+/// Like [`target_for_height`] but allows overriding the initial (genesis) target.
+///
+/// Use [`TESTNET_INITIAL_TARGET`](crate::constants::TESTNET_INITIAL_TARGET) for
+/// testnet deployments to prevent instant-mining of early blocks.
+pub fn target_for_height_with_initial(
+    height: u64,
+    parent_target: u64,
+    get_timestamp: impl Fn(u64) -> u64,
+    initial_target: u64,
+) -> u64 {
     if height <= 1 {
-        return MAX_TARGET;
+        return initial_target;
     }
 
     // We want DIFFICULTY_WINDOW intervals = DIFFICULTY_WINDOW + 1 timestamps.
