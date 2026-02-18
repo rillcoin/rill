@@ -2,6 +2,11 @@
 # rust:1.85-bookworm includes all build tooling on Debian Bookworm.
 FROM rust:1.85-bookworm AS builder
 
+# Install clang/libclang for bindgen (required by rocksdb/zstd-sys).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    clang libclang-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 # Copy workspace manifests and lock file first to leverage layer caching.
@@ -28,10 +33,15 @@ RUN find crates bins -name "Cargo.toml" | while read f; do \
       else \
         mkdir -p "$dir/src" && echo '' > "$dir/src/lib.rs"; \
       fi; \
-      # Create stub bench files referenced in [[bench]] sections.
-      awk '/^\[\[bench\]\]/{b=1} b && /^name *= *"/{gsub(/.*"/, "", $0); gsub(/".*/, "", $0); print; b=0}' "$f" | while read -r bench; do \
-        mkdir -p "$dir/benches" && echo 'fn main() {}' > "$dir/benches/${bench}.rs"; \
-      done; \
+    done \
+    # Create stub bench files for all [[bench]] targets.
+    && for crate_dir in crates/*/; do \
+      toml="${crate_dir}Cargo.toml"; \
+      if [ -f "$toml" ]; then \
+        grep -A1 '^\[\[bench\]\]' "$toml" | grep 'name' | sed 's/.*"\(.*\)".*/\1/' | while read -r bench; do \
+          mkdir -p "${crate_dir}benches" && echo 'fn main() {}' > "${crate_dir}benches/${bench}.rs"; \
+        done; \
+      fi; \
     done
 
 RUN cargo fetch --locked

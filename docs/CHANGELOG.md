@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-02-18 - Azure Testnet Infrastructure (Partial)
+- Created `infra/azure-testnet.sh` -- full Azure CLI provisioner for 4-node testnet
+- Created `infra/README.md` with setup guide
+- Fixed Dockerfile: added `clang`/`libclang-dev` for bindgen, stub bench files for cargo fetch
+- Fixed `.dockerignore` context handling (rsync clean context to avoid 20GB target/ upload)
+- Successfully built and pushed x86 Docker image to Azure Container Registry
+- Successfully provisioned VNet, NSG, ACR, and public IP in Azure
+- Hit Azure limitations: quota restrictions on new subscriptions, ARM64 QEMU emulation too slow
+- Resolved quota via `az quota create` API
+- Decision: moving to Hetzner for simpler, cheaper testnet hosting
+- Azure resources cleaned up (resource groups deleted)
+
 ### 2026-02-18 - Discord Server Hardening & Onboarding
 - Fixed channel permissions: @everyone Send Messages, Create Private Threads, Send in Threads removed at role level
 - Audited all 36 channels via API — confirmed read-only, community, governance, and team permissions are correct

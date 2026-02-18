@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# azure-testnet.sh — RillCoin Azure Testnet Provisioner
+# azure-testnet.sh -- RillCoin Azure Testnet Provisioner
 # =============================================================================
 #
 # Provisions a 4-node RillCoin testnet on Azure:
@@ -28,20 +28,20 @@
 set -euo pipefail
 
 # =============================================================================
-# CONFIG — edit these before running
+# CONFIG -- edit these before running
 # =============================================================================
 
-RESOURCE_GROUP="rill-testnet"
-LOCATION="eastus"
+RESOURCE_GROUP="rill-testnet-v2"
+LOCATION="southcentralus"
 
-# Standard_B2s: 2 vCPU, 4 GB RAM — sufficient for RocksDB under testnet load.
-# ~$30.37/mo per VM when running 24/7 (eastus, pay-as-you-go).
-VM_SIZE="Standard_B2s"
+# Standard_B2s_v2: 2 vCPU, 8 GB RAM (x64) -- available in southcentralus.
+# ~$30/mo per VM when running 24/7.
+VM_SIZE="Standard_B2s_v2"
 
 # 1 seed + 2 miners + 1 rpc/wallet
 NODE_COUNT=4
 
-# Ubuntu 24.04 LTS — Docker CE supported, long-term maintained.
+# Ubuntu 24.04 LTS -- Docker CE supported, long-term maintained.
 VM_IMAGE="Canonical:ubuntu-24_04-lts:server:latest"
 
 # The non-root admin user created on each VM.
@@ -50,7 +50,7 @@ ADMIN_USER="rill"
 # Path to your local SSH public key.
 SSH_PUBLIC_KEY_PATH="${HOME}/.ssh/id_ed25519.pub"
 
-# Azure Container Registry name — must be globally unique, alphanumeric only.
+# Azure Container Registry name -- must be globally unique, alphanumeric only.
 # Basic tier: ~$5/mo. Includes 10 GB storage and geo-replication disabled.
 ACR_NAME="rillcr"
 
@@ -122,9 +122,9 @@ preflight() {
     account_name="$(az account show --query 'name' -o tsv)"
     info "Active subscription: ${account_name}"
 
-    # Docker is NOT required locally — az acr build compiles remotely in Azure.
+    # Docker is NOT required locally -- az acr build compiles remotely in Azure.
     if command -v docker &>/dev/null; then
-        info "Docker found locally (not required — ACR builds remotely)"
+        info "Docker found locally (not required -- ACR builds remotely)"
     fi
 
     # Register required Azure resource providers (no-op if already registered).
@@ -190,7 +190,7 @@ create_infra() {
         --name "rill-nsg" \
         --output none
 
-    # Rule 100 — SSH from caller's IP only.
+    # Rule 100 -- SSH from caller's IP only.
     # Priority 100 (lowest number = highest precedence).
     local ssh_source="${MY_IP}"
     [[ "${MY_IP}" == "*" ]] && ssh_source="Internet"
@@ -209,7 +209,7 @@ create_infra() {
         --access Allow \
         --output none
 
-    # Rule 110 — P2P between VNet nodes only (18333).
+    # Rule 110 -- P2P between VNet nodes only (18333).
     info "NSG: Allow P2P (${P2P_PORT}) within VNet"
     az network nsg rule create \
         --resource-group "${RESOURCE_GROUP}" \
@@ -225,7 +225,7 @@ create_infra() {
         --access Allow \
         --output none
 
-    # Rule 120 — RPC from caller's IP only (18332).
+    # Rule 120 -- RPC from caller's IP only (18332).
     local rpc_source="${MY_IP}"
     [[ "${MY_IP}" == "*" ]] && rpc_source="Internet"
     info "NSG: Allow RPC (${RPC_PORT}) from ${rpc_source}"
@@ -243,7 +243,7 @@ create_infra() {
         --access Allow \
         --output none
 
-    # Rule 4096 — Deny all other inbound traffic.
+    # Rule 4096 -- Deny all other inbound traffic.
     info "NSG: Deny all other inbound"
     az network nsg rule create \
         --resource-group "${RESOURCE_GROUP}" \
@@ -287,32 +287,40 @@ create_acr() {
         --admin-enabled true \
         --output none
 
-    # Create a clean context directory — az acr build uploads the entire context
-    # and may not fully respect .dockerignore. The target/ dir can be 20+ GB
-    # so we rsync a clean copy to a temp dir.
-    local build_ctx
-    build_ctx="$(mktemp -d /tmp/rill-acr-context.XXXXXX)"
-    info "Creating clean build context (excluding target/, .git/)..."
-    rsync -a \
-        --exclude='target' \
-        --exclude='.git' \
-        --exclude='web/node_modules' \
-        --exclude='.DS_Store' \
-        "${REPO_ROOT}/" "${build_ctx}/"
-    local ctx_size
-    ctx_size="$(du -sh "${build_ctx}" | cut -f1)"
-    info "Build context: ${ctx_size}"
+    # Skip the build if the image already exists in ACR.
+    local existing_tags
+    existing_tags="$(az acr repository show-tags --name "${ACR_NAME}" --repository rill-node -o tsv 2>/dev/null || echo "")"
+    if echo "${existing_tags}" | grep -qx "${IMAGE_TAG}"; then
+        info "Image rill-node:${IMAGE_TAG} already exists in ACR -- skipping build."
+        info "To force rebuild, delete the tag first: az acr repository delete --name ${ACR_NAME} --image rill-node:${IMAGE_TAG}"
+    else
+        # Create a clean context directory -- az acr build uploads the entire context
+        # and may not fully respect .dockerignore. The target/ dir can be 20+ GB
+        # so we rsync a clean copy to a temp dir.
+        local build_ctx
+        build_ctx="$(mktemp -d /tmp/rill-acr-context.XXXXXX)"
+        info "Creating clean build context (excluding target/, .git/)..."
+        rsync -a \
+            --exclude='target' \
+            --exclude='.git' \
+            --exclude='web/node_modules' \
+            --exclude='.DS_Store' \
+            "${REPO_ROOT}/" "${build_ctx}/"
+        local ctx_size
+        ctx_size="$(du -sh "${build_ctx}" | cut -f1)"
+        info "Build context: ${ctx_size}"
 
-    info "Building Docker image in ACR (Rust compile — may take 10-15 min)..."
-    az acr build \
-        --registry "${ACR_NAME}" \
-        --image "rill-node:${IMAGE_TAG}" \
-        --file "${build_ctx}/Dockerfile" \
-        "${build_ctx}"
+        info "Building Docker image in ACR (Rust compile -- may take 15-20 min)..."
+        az acr build \
+            --registry "${ACR_NAME}" \
+            --image "rill-node:${IMAGE_TAG}" \
+            --timeout 3600 \
+            --file "${build_ctx}/Dockerfile" \
+            "${build_ctx}"
 
-    rm -rf "${build_ctx}"
-
-    info "Image pushed: ${IMAGE_NAME}"
+        rm -rf "${build_ctx}"
+        info "Image pushed: ${IMAGE_NAME}"
+    fi
 }
 
 # =============================================================================
@@ -322,15 +330,15 @@ create_acr() {
 
 # Generates a cloud-init YAML document for a given node index.
 # Arguments:
-#   $1 — node index (0-3)
-#   $2 — role: seed | miner | wallet
-#   $3 — extra rill-node flags (e.g. "--bootstrap-peers 10.0.1.10:18333")
+#   $1 -- node index (0-3)
+#   $2 -- role: seed | miner | wallet
+#   $3 -- extra rill-node flags (e.g. "--bootstrap-peers 10.0.1.10:18333")
 render_cloud_init() {
     local idx="$1"
     local role="$2"
     local extra_flags="$3"
 
-    # ACR login credentials — retrieved at render time and embedded in the
+    # ACR login credentials -- retrieved at render time and embedded in the
     # cloud-init document. The password is the ACR admin password; it is
     # passed via cloud-init user-data which is encrypted at rest by Azure.
     # For production use, switch to a managed identity with AcrPull role.
@@ -342,7 +350,7 @@ render_cloud_init() {
 
     cat <<CLOUD_INIT
 #cloud-config
-# RillCoin node${idx} (${role}) — generated by azure-testnet.sh
+# RillCoin node${idx} (${role}) -- generated by azure-testnet.sh
 
 package_update: true
 package_upgrade: true
@@ -391,7 +399,7 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 
-  # Docker daemon config — limit log size to avoid filling the OS disk.
+  # Docker daemon config -- limit log size to avoid filling the OS disk.
   - path: /etc/docker/daemon.json
     permissions: '0644'
     content: |
@@ -444,7 +452,7 @@ CLOUD_INIT
 create_vms() {
     section "Phase 3: Virtual Machines"
 
-    # Public IP for node0 only — all other nodes communicate within the VNet.
+    # Public IP for node0 only -- all other nodes communicate within the VNet.
     info "Creating public IP for node0 (seed)..."
     az network public-ip create \
         --resource-group "${RESOURCE_GROUP}" \
@@ -466,7 +474,7 @@ create_vms() {
         local extra_flags=""
         case "${role}" in
             seed)
-                # Seed node: no bootstrap peers — it IS the bootstrap peer.
+                # Seed node: no bootstrap peers -- it IS the bootstrap peer.
                 extra_flags=""
                 ;;
             miner)
@@ -498,11 +506,9 @@ create_vms() {
             --network-security-group "rill-nsg"
             --output none
         )
-        # Attach the public IP only to node0.
+        # Attach the public IP only to node0; omit for other nodes (no public IP).
         if [[ "${i}" -eq 0 ]]; then
             nic_args+=(--public-ip-address "rill-node0-pip")
-        else
-            nic_args+=(--public-ip-address "")
         fi
         az network nic create "${nic_args[@]}"
 
@@ -608,16 +614,16 @@ All RPC traffic must be tunnelled through node0 (the only node with a public IP)
 Run one of the commands below in a separate terminal, then query the node's RPC
 on the forwarded localhost port.
 
-# node0 (seed) — forwards local port 18332 -> node0:18332
+# node0 (seed) -- forwards local port 18332 -> node0:18332
 ssh -N -L 18332:${NODE_IPS[0]}:${RPC_PORT} ${ADMIN_USER}@${seed_public_ip}
 
-# node1 (miner) — forwards local port 18342 -> node1:18332
+# node1 (miner) -- forwards local port 18342 -> node1:18332
 ssh -N -L 18342:${NODE_IPS[1]}:${RPC_PORT} ${ADMIN_USER}@${seed_public_ip}
 
-# node2 (miner) — forwards local port 18352 -> node2:18332
+# node2 (miner) -- forwards local port 18352 -> node2:18332
 ssh -N -L 18352:${NODE_IPS[2]}:${RPC_PORT} ${ADMIN_USER}@${seed_public_ip}
 
-# node3 (wallet) — forwards local port 18362 -> node3:18332
+# node3 (wallet) -- forwards local port 18362 -> node3:18332
 ssh -N -L 18362:${NODE_IPS[3]}:${RPC_PORT} ${ADMIN_USER}@${seed_public_ip}
 
 # All nodes in one command (background tunnel):
@@ -665,7 +671,7 @@ ssh_node() {
 }
 
 # =============================================================================
-# STOP (DEALLOCATE) ALL VMs — saves compute cost while not testing
+# STOP (DEALLOCATE) ALL VMs -- saves compute cost while not testing
 # =============================================================================
 
 stop_all() {
@@ -710,7 +716,7 @@ start_all() {
 }
 
 # =============================================================================
-# TEARDOWN — deletes the entire resource group (ALL resources)
+# TEARDOWN -- deletes the entire resource group (ALL resources)
 # =============================================================================
 
 teardown() {
@@ -772,7 +778,7 @@ COST
 }
 
 # =============================================================================
-# FULL DEPLOY — runs all three phases in order
+# FULL DEPLOY -- runs all three phases in order
 # =============================================================================
 
 deploy() {
