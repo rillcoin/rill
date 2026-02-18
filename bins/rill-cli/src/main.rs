@@ -494,6 +494,8 @@ async fn wallet_address(args: AddressArgs) -> Result<()> {
         .context("Failed to load wallet (check password)")?;
 
     let address = wallet.next_address();
+    wallet.save_to_file(&wallet_path, password.as_bytes())
+        .context("Failed to save wallet after deriving address")?;
     println!("{}", address.encode());
     Ok(())
 }
@@ -515,7 +517,12 @@ async fn wallet_balance(args: BalanceArgs) -> Result<()> {
     // Collect UTXOs for all wallet addresses
     let mut all_utxos: Vec<(rill_core::types::OutPoint, rill_core::types::UtxoEntry)> = Vec::new();
 
-    // Derive addresses up to the wallet's current index to scan
+    // Ensure at least one address is derived for scanning.
+    if wallet.address_count() == 0 {
+        wallet.next_address();
+        wallet.save_to_file(&wallet_path, password.as_bytes())
+            .context("Failed to save wallet after deriving initial address")?;
+    }
     let address_count = wallet.address_count();
     for i in 0..address_count {
         let addr = wallet.keychain_mut().address_at(i);
