@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - infra: Full Service Restart + Testnet Chain Reset
+
+**Resolved stale-process conflicts, deployed new binaries, and reset testnet to clean genesis.**
+
+#### What was done
+- Stopped the conflicting stale rill-node (PID 31094, old binary, wrong data dir)
+- Migrated testnet chain data from `/root/.local/share/rill/testnet/` → `/var/lib/rill/testnet/`
+- Updated `/etc/systemd/system/rill-node.service` to add `--testnet --data-dir /var/lib/rill/testnet`
+- Updated `/etc/systemd/system/rill-miner.service` to use `Wants=` instead of `Requires=` (prevents miner dying when node restarts)
+- Killed old stale miner (PID 31939) running for 16h with wrong mining address
+- Installed new binaries: `rill-node` (16.7 MB), `rill-miner` (5.7 MB) from Feb 19 build
+
+#### Testnet chain reset
+- Chain at height 452 had difficulty 100x too hard (~220 min/block) due to aggressive early overmining
+- All 452 blocks were mined by the stale miner using an unknown address — no recoverable rewards
+- Reset chain: `rm -rf /var/lib/rill/testnet/chaindata && systemctl start rill-node rill-miner`
+- Fresh genesis at block 0, miner using correct address `trill1qfz8v...nfls3grgem`
+- Chain now at height 72, all block rewards going to miner wallet
+
+#### Services status (post-reset)
+- `rill-node` — active, testnet, height 72, genesis hash confirmed fresh
+- `rill-miner` — active at 57K H/s, target adjusting, ~5 min/block at height 73+
+- `rill-faucet` — active on 8080, balance 0 (waiting for coinbase maturity at block 101)
+- `rill-explorer` — active on 8081
+
+#### Next: Fund faucet
+- Need height ≥ 101 for block-1 coinbase to mature (COINBASE_MATURITY = 100)
+- At ~5-10 min/block, maturity expected within ~4 hours
+- Then: `rill-cli --testnet send --wallet /root/.rill/miner-new.dat --to <faucet_addr> --amount 5000`
+
 ### 2026-02-19 - infra: Mempool Fix Deployed — Services Restored
 
 **Rebuilt rill-node and rill-miner on node0 with the mempool inclusion fix. All four services running.**

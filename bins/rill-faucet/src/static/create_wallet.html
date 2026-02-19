@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Testnet Wallet — RillCoin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange:  #FF8C00;
+      --orange-d:#CC7000;
+      --bg:      #0f1117;
+      --surface: #1a1d27;
+      --border:  #2a2d3e;
+      --text:    #e2e8f0;
+      --muted:   #8892a4;
+      --success: #22c55e;
+      --error:   #ef4444;
+      --warning: #f59e0b;
+      --radius:  10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      background: var(--orange);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.1rem; color: #000;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 span { color: var(--orange); }
+    .badge {
+      margin-left: auto;
+      background: rgba(255,140,0,.15);
+      color: var(--orange);
+      border: 1px solid rgba(255,140,0,.3);
+      padding: 0.2rem 0.65rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .nav-link {
+      margin-left: 0.5rem;
+      color: var(--orange);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid rgba(255,140,0,.35);
+      border-radius: 20px;
+      transition: background 0.15s;
+    }
+    .nav-link:hover { background: rgba(255,140,0,.12); }
+
+    /* ── Main ── */
+    main {
+      width: 100%;
+      max-width: 620px;
+      padding: 2rem 1rem;
+      flex: 1;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .warning-box {
+      background: rgba(245,158,11,.08);
+      border: 1px solid rgba(245,158,11,.25);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      font-size: 0.85rem;
+      color: var(--warning);
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+    .warning-box strong { display: block; margin-bottom: 0.3rem; }
+
+    button {
+      width: 100%;
+      background: var(--orange);
+      color: #000;
+      font-weight: 700;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:hover:not(:disabled) { background: var(--orange-d); }
+    button:active:not(:disabled) { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Wallet result ── */
+    #wallet-result { display: none; }
+
+    .field-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      margin-top: 1.1rem;
+    }
+    .field-label:first-of-type { margin-top: 0; }
+
+    .mono-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: "SFMono-Regular", "Consolas", monospace;
+      font-size: 0.88rem;
+      word-break: break-all;
+      line-height: 1.6;
+      position: relative;
+    }
+    .mono-box.mnemonic {
+      letter-spacing: 0.02em;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: auto;
+      background: rgba(255,140,0,.15);
+      color: var(--orange);
+      border: 1px solid rgba(255,140,0,.3);
+      border-radius: 6px;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .copy-btn:hover { background: rgba(255,140,0,.25); }
+    .copy-btn.copied { color: var(--success); border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.1); }
+
+    .word-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+    }
+    .word-chip {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.5rem;
+      font-family: monospace;
+      font-size: 0.82rem;
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .word-num {
+      color: var(--muted);
+      font-size: 0.7rem;
+      min-width: 1.4rem;
+    }
+
+    .confirm-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .confirm-check input { margin-top: 0.15rem; accent-color: var(--orange); flex-shrink: 0; }
+    #download-btn { margin-top: 1rem; display: none; }
+
+    .divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+    .next-step {
+      background: rgba(34,197,94,.08);
+      border: 1px solid rgba(34,197,94,.2);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      font-size: 0.88rem;
+      color: var(--success);
+      line-height: 1.6;
+    }
+    .next-step a { color: var(--orange); text-decoration: none; font-weight: 600; }
+    .next-step a:hover { text-decoration: underline; }
+
+    /* ── Error ── */
+    #error-box {
+      display: none;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      color: var(--error);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    footer a { color: var(--orange); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">R</div>
+  <h1><span>Rill</span>Coin Testnet Wallet</h1>
+  <span class="badge">Testnet</span>
+  <a href="/" class="nav-link">← Faucet</a>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Create a New Testnet Wallet</h2>
+
+    <div class="warning-box" id="warning-initial">
+      <strong>⚠ Read before generating</strong>
+      Your wallet is derived from a 24-word seed phrase. The seed is generated
+      in your browser and <strong>never stored on this server</strong>. You must
+      save it yourself — it cannot be recovered if lost.
+    </div>
+
+    <button id="generate-btn" onclick="generateWallet()">Generate Wallet</button>
+    <div id="error-box"></div>
+  </div>
+
+  <div class="card" id="wallet-result">
+    <h2>Your New Wallet</h2>
+
+    <div class="warning-box">
+      <strong>⚠ Save your seed phrase now</strong>
+      Write these 24 words down and store them somewhere safe. Anyone with
+      these words can access your funds. This page will not save them for you.
+    </div>
+
+    <div class="field-label">Testnet Address</div>
+    <div class="mono-box" style="position:relative">
+      <span id="wallet-address"></span>
+      <button class="copy-btn" onclick="copyField('wallet-address', this)">Copy</button>
+    </div>
+
+    <div class="field-label">Seed Phrase (24 words)</div>
+    <div id="word-grid" class="word-grid"></div>
+
+    <div class="field-label" style="margin-top:1rem">Seed Phrase (plain text)</div>
+    <div class="mono-box mnemonic" style="position:relative">
+      <span id="wallet-mnemonic"></span>
+      <button class="copy-btn" onclick="copyField('wallet-mnemonic', this)">Copy</button>
+    </div>
+
+    <label class="confirm-check">
+      <input type="checkbox" id="saved-check" onchange="toggleDownload()" />
+      I have written down my seed phrase and understand it cannot be recovered if lost.
+    </label>
+
+    <button id="download-btn" onclick="downloadBackup()">Download Backup (.txt)</button>
+
+    <div class="divider"></div>
+
+    <div class="next-step">
+      ✅ Wallet ready! Send yourself testnet RILL from the
+      <a href="/">faucet</a> using your address above.
+    </div>
+  </div>
+</main>
+
+<footer>
+  RillCoin — "Wealth should flow like water." &nbsp;|&nbsp;
+  <a href="https://github.com/rillcoin/rill" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script>
+  let currentWallet = null;
+
+  async function generateWallet() {
+    const btn = document.getElementById('generate-btn');
+    const errBox = document.getElementById('error-box');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    errBox.style.display = 'none';
+
+    try {
+      const resp = await fetch('/api/wallet/new');
+      if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+      const data = await resp.json();
+
+      currentWallet = data;
+      renderWallet(data);
+
+      document.getElementById('wallet-result').style.display = '';
+      document.getElementById('warning-initial').style.display = 'none';
+      btn.textContent = 'Generate New Wallet';
+      btn.disabled = false;
+    } catch (e) {
+      errBox.textContent = '❌ ' + (e.message || 'Failed to generate wallet');
+      errBox.style.display = '';
+      btn.textContent = 'Generate Wallet';
+      btn.disabled = false;
+    }
+  }
+
+  function renderWallet(data) {
+    document.getElementById('wallet-address').textContent = data.address;
+    document.getElementById('wallet-mnemonic').textContent = data.mnemonic;
+
+    const words = data.mnemonic.split(' ');
+    const grid = document.getElementById('word-grid');
+    grid.innerHTML = '';
+    words.forEach((word, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'word-chip';
+      chip.innerHTML = `<span class="word-num">${i + 1}.</span><span>${word}</span>`;
+      grid.appendChild(chip);
+    });
+
+    // Reset confirmation state.
+    document.getElementById('saved-check').checked = false;
+    document.getElementById('download-btn').style.display = 'none';
+  }
+
+  function toggleDownload() {
+    const checked = document.getElementById('saved-check').checked;
+    document.getElementById('download-btn').style.display = checked ? '' : 'none';
+  }
+
+  function downloadBackup() {
+    if (!currentWallet) return;
+    const content = [
+      'RillCoin Testnet Wallet Backup',
+      '================================',
+      '',
+      'Network: Testnet',
+      `Address: ${currentWallet.address}`,
+      '',
+      'Seed Phrase (24 words):',
+      currentWallet.mnemonic,
+      '',
+      '================================',
+      'KEEP THIS FILE SAFE AND PRIVATE.',
+      'Anyone with these words can access your funds.',
+      'This is a TESTNET wallet — for testing only.',
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rillcoin-testnet-wallet.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function copyField(id, btn) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+</script>
+</body>
+</html>

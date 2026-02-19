@@ -13,7 +13,9 @@ use serde_json::json;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn};
 
+use rill_core::address::Network;
 use rill_core::constants::COIN;
+use rill_wallet::{seed_to_mnemonic, KeyChain, Seed};
 
 use crate::discord;
 use crate::send::{fetch_balance, rpc_client, send_rill};
@@ -21,6 +23,7 @@ use crate::AppState;
 
 // Embed the web UI at compile time.
 const INDEX_HTML: &str = include_str!("static/index.html");
+const CREATE_WALLET_HTML: &str = include_str!("static/create_wallet.html");
 
 // ---------------------------------------------------------------------------
 // Router
@@ -34,8 +37,10 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .route("/", get(web_ui))
+        .route("/create-wallet", get(create_wallet_ui))
         .route("/api/faucet", post(api_faucet))
         .route("/api/status", get(api_status))
+        .route("/api/wallet/new", get(api_create_wallet))
         .route("/discord/interactions", post(discord_interactions))
         .with_state(state)
         .layer(cors)
@@ -48,6 +53,28 @@ pub fn router(state: AppState) -> Router {
 /// Serve the embedded web UI.
 async fn web_ui() -> Html<&'static str> {
     Html(INDEX_HTML)
+}
+
+/// Serve the wallet creation page.
+async fn create_wallet_ui() -> Html<&'static str> {
+    Html(CREATE_WALLET_HTML)
+}
+
+/// `GET /api/wallet/new` — generate a fresh testnet wallet.
+///
+/// Generates a random seed, derives a BIP-39 mnemonic and the first testnet
+/// address. The seed is **never stored** on the server — the caller must save
+/// the mnemonic to restore the wallet later.
+async fn api_create_wallet() -> impl IntoResponse {
+    let seed = Seed::generate();
+    let mnemonic = seed_to_mnemonic(&seed);
+    let mut keychain = KeyChain::new(seed, Network::Testnet);
+    let address = keychain.address_at(0).encode();
+
+    Json(json!({
+        "mnemonic": mnemonic,
+        "address": address,
+    }))
 }
 
 #[derive(Deserialize)]

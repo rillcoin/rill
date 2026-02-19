@@ -3,15 +3,40 @@
 
 ## Recent Sessions
 
-### 2026-02-19 — Full Marketing Web Presence
-Built and deployed all four rillcoin.com properties from scratch. All HTTPS, all live.
+### 2026-02-19 — Infra Recovery + Testnet Chain Reset
+Resolved stale process conflicts, deployed mempool-fix binaries, reset testnet chain to fresh genesis.
 
-**Key commits:** `16b44c6`, `9f18e8a`, `a2e7c9f`
+**Key commits:** `a2499c8` (mempool+maturity fix), current session (changelog)
 
 ## Active Context
-- **Current Phase:** Testnet live. Marketing web presence complete.
+- **Current Phase:** Testnet live. Chain reset to fresh genesis. Faucet needs funding.
 - **Server:** DigitalOcean droplet `206.189.202.181` (rill-node0, tag: rill-testnet)
 - **DNS provider:** IONOS (rillcoin.com domain)
+
+## Testnet Chain State (as of 2026-02-19 19:34 UTC)
+- Height: 72 (fresh genesis, reset due to overmined/too-hard chain)
+- Mining address: `trill1qfz8v6clahtl40c738vm8mskt27ka29kvyv60wzressllfs99nfls3grgem`
+- Miner wallet: `/root/.rill/miner-new.dat`, password: see credentials.md
+- Faucet wallet: `/var/lib/rill/faucet.dat`, balance: 0 (needs funding at height ≥ 101)
+- Faucet address: `trill1qnad7yk3l93nd35ddgs0ev5pq85n85qrzyls5zcahx29uxf7w9saq7jzz85`
+
+## Pending Action: Fund Faucet
+Once chain height ≥ 101 (COINBASE_MATURITY = 100 blocks), run:
+```
+python3 -c "
+import pty, os, sys
+pid = os.fork()
+if pid == 0:
+    os.execvp('/usr/local/bin/rill-cli', ['/usr/local/bin/rill-cli', '--testnet', 'wallet', 'send',
+        '--wallet', '/root/.rill/miner-new.dat',
+        '--to', 'trill1qnad7yk3l93nd35ddgs0ev5pq85n85qrzyls5zcahx29uxf7w9saq7jzz85',
+        '--amount', '5000'])
+else:
+    # feed password RillMiner2026xK9qP when prompted
+    pass
+"
+```
+(Or use the Python pty approach from previous sessions to supply password non-interactively)
 
 ## Live Sites
 | Site | URL | Nginx root | Cert |

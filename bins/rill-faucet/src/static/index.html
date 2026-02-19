@@ -211,6 +211,18 @@
       font-size: 0.78rem;
     }
     footer a { color: var(--orange); text-decoration: none; }
+    .nav-link {
+      margin-left: 0.5rem;
+      color: var(--orange);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border: 1px solid rgba(255,140,0,.35);
+      border-radius: 20px;
+      transition: background 0.15s;
+    }
+    .nav-link:hover { background: rgba(255,140,0,.12); }
   </style>
 </head>
 <body>
@@ -219,6 +231,7 @@
   <div class="logo">R</div>
   <h1><span>Rill</span>Coin Testnet Faucet</h1>
   <span class="badge">Testnet</span>
+  <a href="/create-wallet" class="nav-link">Create Wallet</a>
 </header>
 
 <main>
