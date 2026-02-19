@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================
+   Design Tokens — sourced from shared/design-tokens/tokens.css
+   ============================================================= */
+:root {
+  /* Surface palette */
+  --void:    #020408;
+  --base:    #040B16;
+  --raised:  #060E1C;
+  --surface: #0A1628;
+  --overlay: #0D1E35;
+
+  /* Blue scale */
+  --blue-300: #93C5FD;
+  --blue-400: #60A5FA;
+  --blue-500: #3B82F6;
+
+  /* Cyan scale */
+  --cyan-300: #67E8F9;
+  --cyan-400: #22D3EE;
+  --cyan-500: #06B6D4;
+
+  /* Accent orange */
+  --orange-400: #FB923C;
+  --orange-500: #F97316;
+
+  /* Text scale */
+  --text-primary:   #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+  --text-dim:       #475569;
+
+  /* Border tints */
+  --border-subtle: rgba(148, 163, 184, 0.082);
+  --border-dim:    rgba(148, 163, 184, 0.157);
+}
+
+/* =============================================
+   Base reset & global styles
+   ============================================= */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--void);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =============================================
+   Prose content styles for doc pages
+   ============================================= */
+.doc-prose h1 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 2.25rem;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+.doc-prose h2 {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.doc-prose h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.doc-prose h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 1.25rem;
+  margin-bottom: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.doc-prose p {
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 1rem;
+}
+
+.doc-prose ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+
+.doc-prose ul li {
+  color: var(--text-secondary);
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.75;
+  margin-bottom: 0.375rem;
+}
+
+.doc-prose ul li::before {
+  content: "–";
+  position: absolute;
+  left: 0;
+  color: var(--cyan-400);
+}
+
+.doc-prose ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.doc-prose ol li {
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 0.375rem;
+  padding-left: 0.25rem;
+}
+
+.doc-prose strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.doc-prose code {
+  font-family: var(--font-jetbrains-mono), Menlo, monospace;
+  font-size: 0.8125rem;
+  background: var(--raised);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 0.125rem 0.375rem;
+  color: var(--cyan-300);
+}
+
+.doc-prose a {
+  color: var(--blue-400);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.doc-prose a:hover {
+  color: var(--cyan-400);
+  text-decoration: underline;
+}
+
+.doc-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.doc-prose table th {
+  text-align: left;
+  padding: 0.625rem 0.875rem;
+  background: var(--raised);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.doc-prose table td {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-jetbrains-mono), Menlo, monospace;
+  font-size: 0.8125rem;
+}
+
+.doc-prose table tr:last-child td {
+  border-bottom: none;
+}
+
+.doc-prose blockquote {
+  border-left: 3px solid var(--cyan-400);
+  padding: 0.75rem 1.25rem;
+  background: var(--raised);
+  border-radius: 0 6px 6px 0;
+  margin: 1.5rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* =============================================
+   Gradient text utility
+   ============================================= */
+@layer utilities {
+  .text-gradient-blue-cyan {
+    background: linear-gradient(135deg, #60A5FA 0%, #22D3EE 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-hero {
+    background: linear-gradient(
+      180deg,
+      #F8FAFC 0%,
+      #F8FAFC 40%,
+      #22D3EE 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-dim) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--border-dim);
+    border-radius: 2px;
+  }
+}
