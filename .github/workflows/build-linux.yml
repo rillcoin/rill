@@ -1,0 +1,104 @@
+name: Build Linux Binaries
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to node0 after build"
+        required: false
+        default: "false"
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    name: Build x86_64 Linux
+    runs-on: ubuntu-latest-32-cores
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cache cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: linux-cargo-
+
+      - name: Build release binaries
+        run: |
+          cargo build --release \
+            --target x86_64-unknown-linux-gnu \
+            -p rill-node \
+            -p rill-miner \
+            -p rill-faucet \
+            -p rill-cli
+
+      - name: Smoke-test binaries
+        run: |
+          ./target/x86_64-unknown-linux-gnu/release/rill-node --version
+          ./target/x86_64-unknown-linux-gnu/release/rill-miner --version
+          ./target/x86_64-unknown-linux-gnu/release/rill-faucet --version
+          ./target/x86_64-unknown-linux-gnu/release/rill-cli --version
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rill-linux-x86_64-${{ github.sha }}
+          path: |
+            target/x86_64-unknown-linux-gnu/release/rill-node
+            target/x86_64-unknown-linux-gnu/release/rill-miner
+            target/x86_64-unknown-linux-gnu/release/rill-faucet
+            target/x86_64-unknown-linux-gnu/release/rill-cli
+          retention-days: 14
+
+      - name: Deploy to node0
+        if: ${{ github.event.inputs.deploy == 'true' || (github.ref == 'refs/heads/main' && github.event_name == 'push') }}
+        env:
+          NODE0_SSH_KEY: ${{ secrets.NODE0_SSH_KEY }}
+          NODE0_HOST: ${{ secrets.NODE0_HOST }}
+        run: |
+          echo "$NODE0_SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          BINS="rill-node rill-miner rill-faucet rill-cli"
+          for bin in $BINS; do
+            scp -o StrictHostKeyChecking=no -i /tmp/deploy_key \
+              target/x86_64-unknown-linux-gnu/release/$bin \
+              root@${NODE0_HOST}:/tmp/$bin
+          done
+
+          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key root@${NODE0_HOST} '
+            set -e
+            for bin in rill-node rill-miner rill-faucet rill-cli; do
+              chmod +x /tmp/$bin
+              mv /tmp/$bin /usr/local/bin/$bin
+            done
+
+            # Restart services (node + faucet — do not restart miner automatically)
+            systemctl restart rill-node || true
+            sleep 3
+            systemctl restart rill-faucet || true
+
+            echo "Deploy complete."
+            systemctl is-active rill-node rill-faucet || true
+          '
+
+          rm -f /tmp/deploy_key
