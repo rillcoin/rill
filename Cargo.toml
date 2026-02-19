@@ -11,6 +11,7 @@ members = [
     "bins/rill-cli",
     "bins/rill-miner",
     "bins/rill-faucet",
+    "bins/rill-explorer",
     "crates/rill-tests",
 ]
 

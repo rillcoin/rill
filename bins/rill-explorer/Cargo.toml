@@ -1,0 +1,23 @@
+[package]
+name = "rill-explorer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "RillCoin block explorer"
+
+[[bin]]
+name = "rill-explorer"
+path = "src/main.rs"
+
+[dependencies]
+tokio       = { workspace = true }
+anyhow      = { workspace = true }
+tracing     = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+axum        = { workspace = true }
+tower-http  = { workspace = true }
+reqwest     = { workspace = true }

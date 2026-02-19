@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RillCoin Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange:  #FF8C00;
+      --orange-d:#CC7000;
+      --bg:      #0a0c12;
+      --bg2:     #0f1117;
+      --surface: #141720;
+      --surface2:#1a1d27;
+      --border:  #1e2235;
+      --text:    #e2e8f0;
+      --muted:   #8892a4;
+      --dim:     #4a5568;
+      --success: #22c55e;
+      --error:   #ef4444;
+      --radius:  10px;
+      --max:     1100px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a { color: var(--orange); text-decoration: none; cursor: pointer; }
+    a:hover { text-decoration: underline; }
+    code { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.88em; }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      height: 56px;
+      display: flex; align-items: center; gap: 1.5rem;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-weight: 800; font-size: 1rem; color: var(--text);
+      cursor: pointer;
+    }
+    .logo-mark {
+      width: 28px; height: 28px;
+      background: var(--orange); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 0.85rem; color: #000;
+    }
+    .nav-logo span { color: var(--orange); }
+    .nav-badge {
+      font-size: 0.7rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--orange);
+      background: rgba(255,140,0,0.1);
+      border: 1px solid rgba(255,140,0,0.25);
+      padding: 0.15rem 0.5rem; border-radius: 99px;
+    }
+
+    /* ── SEARCH ── */
+    .search-wrap {
+      flex: 1; max-width: 520px; margin-left: auto;
+      display: flex; gap: 0;
+    }
+    #search-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-right: none;
+      border-radius: var(--radius) 0 0 var(--radius);
+      color: var(--text);
+      font-size: 0.88rem;
+      padding: 0.5rem 0.85rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    #search-input::placeholder { color: var(--dim); }
+    #search-input:focus { border-color: var(--orange); }
+    #search-btn {
+      background: var(--orange); border: none;
+      color: #000; font-weight: 700; font-size: 0.88rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #search-btn:hover { background: var(--orange-d); }
+
+    /* ── PAGE ── */
+    main { max-width: var(--max); margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .stat-cell {
+      background: var(--surface);
+      padding: 1rem 1.25rem;
+    }
+    .stat-cell-label {
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--muted); margin-bottom: 0.3rem;
+    }
+    .stat-cell-value {
+      font-size: 1.15rem; font-weight: 700;
+      letter-spacing: -0.02em;
+      font-family: "SFMono-Regular", Consolas, monospace;
+    }
+    .stat-cell-value.orange { color: var(--orange); }
+
+    /* ── SECTION TITLE ── */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-size: 0.9rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    thead th {
+      background: var(--surface2);
+      padding: 0.65rem 1rem;
+      text-align: left;
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    td { padding: 0.7rem 1rem; vertical-align: middle; }
+    .mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.82rem; }
+    .hash-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem; border-radius: 99px;
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge-orange { background: rgba(255,140,0,0.12); color: var(--orange); border: 1px solid rgba(255,140,0,0.25); }
+    .badge-green  { background: rgba(34,197,94,0.1);  color: var(--success); border: 1px solid rgba(34,197,94,0.25); }
+    .badge-dim    { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── DETAIL CARD ── */
+    .detail-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .detail-card h2 {
+      font-size: 1rem; font-weight: 700;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .kv-row {
+      display: flex; gap: 1rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+      align-items: flex-start;
+    }
+    .kv-row:last-child { border-bottom: none; }
+    .kv-key { color: var(--muted); min-width: 160px; flex-shrink: 0; padding-top: 0.05rem; }
+    .kv-val { word-break: break-all; }
+    .kv-val .mono { font-size: 0.82rem; }
+
+    /* ── PAGE TITLE ── */
+    .page-title {
+      font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .page-title .icon { font-size: 1.5rem; }
+
+    /* ── LOADING / ERROR ── */
+    .loading { text-align: center; padding: 3rem; color: var(--muted); }
+    .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 0.75rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-box {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: var(--error);
+      padding: 1rem 1.25rem; border-radius: var(--radius);
+      font-size: 0.9rem;
+    }
+
+    /* ── PAGINATION ── */
+    .pagination { display: flex; gap: 0.5rem; align-items: center; }
+    .page-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-size: 0.82rem; font-weight: 600;
+      padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--orange); }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-info { font-size: 0.82rem; color: var(--muted); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .search-wrap { max-width: 100%; }
+      .kv-row { flex-direction: column; gap: 0.15rem; }
+      .kv-key { min-width: unset; }
+      thead th:nth-child(n+4), td:nth-child(n+4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="nav-logo" onclick="navigate('/')">
+    <div class="logo-mark">R</div>
+    <span>Rill</span>Coin
+    <span class="nav-badge">Explorer</span>
+  </div>
+  <div class="search-wrap">
+    <input id="search-input" type="text"
+           placeholder="Block height / hash / tx / address…"
+           onkeydown="if(event.key==='Enter') doSearch()" />
+    <button id="search-btn" onclick="doSearch()">Search</button>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main id="app">
+  <div class="loading"><div class="spinner"></div><br/>Loading…</div>
+</main>
+
+<script>
+  // ── Router ──────────────────────────────────────────────────────────────────
+  function navigate(path) {
+    history.pushState({}, '', path);
+    route();
+  }
+  window.addEventListener('popstate', route);
+
+  function route() {
+    const p = location.pathname;
+    if (p === '/' || p === '') return renderHome();
+    const m = p.match(/^\/(block|tx|address)\/(.+)$/);
+    if (m) {
+      if (m[1] === 'block')   return renderBlock(m[2]);
+      if (m[1] === 'tx')      return renderTx(m[2]);
+      if (m[1] === 'address') return renderAddress(m[2]);
+    }
+    app().innerHTML = '<div class="error-box">Page not found.</div>';
+  }
+
+  function app() { return document.getElementById('app'); }
+  function loading() { app().innerHTML = '<div class="loading"><div class="spinner"></div><br/>Loading…</div>'; }
+  function err(msg) { app().innerHTML = `<div class="error-box">⚠ ${msg}</div>`; }
+
+  // ── API helpers ─────────────────────────────────────────────────────────────
+  async function api(path) {
+    const r = await fetch('/api' + path);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  }
+
+  // ── Search ──────────────────────────────────────────────────────────────────
+  async function doSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    try {
+      const result = await api('/search?q=' + encodeURIComponent(q));
+      navigate('/' + result.type + '/' + result.value);
+    } catch (e) {
+      err('Not found: ' + q);
+    }
+  }
+
+  // ── Formatters ──────────────────────────────────────────────────────────────
+  function ts(unix) {
+    if (!unix) return '—';
+    const d = new Date(unix * 1000);
+    return d.toUTCString().replace(' GMT', ' UTC');
+  }
+  function ago(unix) {
+    if (!unix) return '';
+    const s = Math.floor((Date.now()/1000) - unix);
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+  }
+  function shortHash(h) {
+    return h ? h.substring(0,12) + '…' + h.slice(-8) : '—';
+  }
+  function link(type, val, label) {
+    return `<a onclick="navigate('/${type}/${val}')">${label || val}</a>`;
+  }
+  function rill(v) {
+    return (typeof v === 'number' ? v : parseFloat(v)).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:8}) + ' RILL';
+  }
+
+  // ── HOME ────────────────────────────────────────────────────────────────────
+  let homeOffset = 0;
+
+  async function renderHome() {
+    loading();
+    try {
+      const [stats, blocks] = await Promise.all([
+        api('/stats'),
+        api('/blocks?limit=20&offset=' + homeOffset),
+      ]);
+      renderHomeContent(stats, blocks);
+    } catch (e) { err(e.message); }
+  }
+
+  function renderHomeContent(s, b) {
+    const ibd = s.ibd ? '⏳ Syncing' : '● Online';
+    const ibdClass = s.ibd ? '' : 'orange';
+
+    const statsHtml = `
+      <div class="stats-bar">
+        <div class="stat-cell">
+          <div class="stat-cell-label">Block Height</div>
+          <div class="stat-cell-value orange">${(s.height||0).toLocaleString()}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-cell-label">Circulating Supply</div>
+          <div class="stat-cell-value">${rill(s.circulating_supply||0)}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-cell-label">Decay Pool</div>
+          <div class="stat-cell-value">${rill(s.decay_pool||0)}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-cell-label">UTXO Set</div>
+          <div class="stat-cell-value">${(s.utxo_count||0).toLocaleString()}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-cell-label">Mempool</div>
+          <div class="stat-cell-value">${s.mempool_size||0} txs</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-cell-label">Peers</div>
+          <div class="stat-cell-value">${s.peer_count||0}</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-cell-label">Status</div>
+          <div class="stat-cell-value ${ibdClass}">${ibd}</div>
+        </div>
+      </div>
+    `;
+
+    const tip = b.tip || 0;
+    const rows = (b.blocks||[]).map(blk => `
+      <tr>
+        <td>${link('block', blk.height, '#' + blk.height)}</td>
+        <td class="mono hash-cell">${link('block', blk.hash, shortHash(blk.hash))}</td>
+        <td>${blk.tx_count}</td>
+        <td class="mono" style="color:var(--muted)">${ago(blk.timestamp)}</td>
+        <td class="mono hash-cell" style="display:none">${blk.prev_hash||''}</td>
+      </tr>
+    `).join('');
+
+    const canPrev = homeOffset > 0;
+    const canNext = homeOffset + 20 < tip;
+    const pagination = `
+      <div class="pagination">
+        <button class="page-btn" onclick="changePage(-1)" ${canPrev?'':'disabled'}>← Newer</button>
+        <span class="page-info">Blocks ${Math.max(0,tip-homeOffset-19)}–${tip-homeOffset}</span>
+        <button class="page-btn" onclick="changePage(1)" ${canNext?'':'disabled'}>Older →</button>
+      </div>
+    `;
+
+    app().innerHTML = statsHtml + `
+      <div class="section-header">
+        <div class="section-title">Recent Blocks</div>
+        ${pagination}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Height</th><th>Hash</th><th>Txs</th><th>Time</th>
+          </tr></thead>
+          <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:2rem">No blocks</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function changePage(dir) {
+    homeOffset = Math.max(0, homeOffset + dir * 20);
+    renderHome();
+  }
+
+  // ── BLOCK ────────────────────────────────────────────────────────────────────
+  async function renderBlock(id) {
+    loading();
+    try {
+      const blk = await api('/block/' + encodeURIComponent(id));
+      const txRows = (blk.tx||[]).map((txid, i) => `
+        <tr>
+          <td style="color:var(--muted)">${i}</td>
+          <td class="mono">${link('tx', txid, txid)}</td>
+          <td>${i===0 ? '<span class="badge badge-orange">Coinbase</span>' : '<span class="badge badge-dim">Regular</span>'}</td>
+        </tr>
+      `).join('');
+
+      const navLinks = `
+        <div style="display:flex;gap:1rem;margin-bottom:1.5rem;font-size:0.88rem">
+          ${blk.height > 0 ? link('block', blk.height - 1, '← Block #' + (blk.height-1)) : ''}
+          <span style="flex:1"></span>
+          ${link('block', blk.height + 1, 'Block #' + (blk.height+1) + ' →')}
+        </div>
+      `;
+
+      app().innerHTML = navLinks + `
+        <div class="page-title"><span class="icon">🧱</span>Block #${(blk.height||0).toLocaleString()}</div>
+        <div class="detail-card">
+          <h2>Block Header</h2>
+          ${kv('Hash',       `<span class="mono">${blk.hash||'—'}</span>`)}
+          ${kv('Height',     blk.height)}
+          ${kv('Timestamp',  ts(blk.timestamp) + ' <span style="color:var(--muted)">(' + ago(blk.timestamp) + ')</span>')}
+          ${kv('Transactions', blk.tx_count)}
+          ${kv('Prev Hash',  `<span class="mono">${link('block', blk.prev_hash, blk.prev_hash)}</span>`)}
+          ${kv('Merkle Root', `<span class="mono">${blk.merkle_root||'—'}</span>`)}
+          ${kv('Difficulty Target', blk.difficulty_target)}
+          ${kv('Nonce',      blk.nonce)}
+        </div>
+        <div class="section-header">
+          <div class="section-title">Transactions (${blk.tx_count||0})</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>TxID</th><th>Type</th></tr></thead>
+            <tbody>${txRows || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:2rem">No transactions</td></tr>'}</tbody>
+          </table>
+        </div>
+      `;
+    } catch (e) { err('Block not found: ' + e.message); }
+  }
+
+  // ── TX ───────────────────────────────────────────────────────────────────────
+  async function renderTx(txid) {
+    loading();
+    try {
+      const tx = await api('/tx/' + encodeURIComponent(txid));
+      app().innerHTML = `
+        <div class="page-title"><span class="icon">💸</span>Transaction</div>
+        <div class="detail-card">
+          <h2>Transaction Details</h2>
+          ${kv('TxID',    `<span class="mono">${tx.txid||txid}</span>`)}
+          ${kv('Version', tx.version)}
+          ${kv('Inputs',  tx.vin_count)}
+          ${kv('Outputs', tx.vout_count)}
+          ${kv('Lock Time', tx.lock_time)}
+        </div>
+        <div class="detail-card" style="background:rgba(255,140,0,0.05);border-color:rgba(255,140,0,0.2)">
+          <p style="font-size:0.88rem;color:var(--muted)">
+            Full input/output details will be available in a future release.
+            Use <a onclick="navigate('/address/...')">address lookup</a> to view UTXOs.
+          </p>
+        </div>
+      `;
+    } catch (e) { err('Transaction not found: ' + e.message); }
+  }
+
+  // ── ADDRESS ──────────────────────────────────────────────────────────────────
+  async function renderAddress(addr) {
+    loading();
+    try {
+      const data = await api('/address/' + encodeURIComponent(addr));
+      const utxoRows = (data.utxos||[])
+        .sort((a,b) => (b.block_height||0) - (a.block_height||0))
+        .map(u => `
+          <tr>
+            <td class="mono hash-cell">${link('tx', u.txid, shortHash(u.txid))}</td>
+            <td class="mono" style="color:var(--orange)">${rill(u.value_rill)}</td>
+            <td>${link('block', u.block_height, '#' + u.block_height)}</td>
+            <td>${u.is_coinbase ? '<span class="badge badge-orange">Coinbase</span>' : '<span class="badge badge-dim">Regular</span>'}</td>
+            <td class="mono hash-cell" style="font-size:0.75rem;color:var(--muted)">${shortHash(u.cluster_id)}</td>
+          </tr>
+        `).join('');
+
+      app().innerHTML = `
+        <div class="page-title"><span class="icon">🏦</span>Address</div>
+        <div class="detail-card">
+          <h2>Address Info</h2>
+          ${kv('Address', `<span class="mono">${addr}</span>`)}
+          ${kv('Balance', `<span style="color:var(--orange);font-weight:700">${rill(data.balance_rill||0)}</span>`)}
+          ${kv('UTXOs',   data.utxo_count||0)}
+        </div>
+        <div class="section-header">
+          <div class="section-title">Unspent Outputs (${data.utxo_count||0})</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>TxID</th><th>Value</th><th>Block</th><th>Type</th><th>Cluster</th></tr></thead>
+            <tbody>${utxoRows || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">No UTXOs</td></tr>'}</tbody>
+          </table>
+        </div>
+      `;
+    } catch (e) { err('Address not found: ' + e.message); }
+  }
+
+  // ── KV helper ────────────────────────────────────────────────────────────────
+  function kv(k, v) {
+    return `<div class="kv-row"><div class="kv-key">${k}</div><div class="kv-val">${v}</div></div>`;
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  route();
+</script>
+</body>
+</html>

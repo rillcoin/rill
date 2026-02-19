@@ -1,0 +1,36 @@
+# =============================================================================
+# rill-explorer.service — RillCoin Block Explorer
+# =============================================================================
+
+[Unit]
+Description=RillCoin Block Explorer
+Documentation=https://github.com/rillcoin/rill
+After=network-online.target rill-node.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rill
+Group=rill
+
+Environment=EXPLORER_RPC_ENDPOINT=http://127.0.0.1:18332
+Environment=EXPLORER_BIND_ADDR=127.0.0.1:8081
+Environment=RUST_LOG=info
+
+ExecStart=/usr/local/bin/rill-explorer
+
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rill-explorer
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
