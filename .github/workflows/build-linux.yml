@@ -72,6 +72,7 @@ jobs:
           retention-days: 14
 
       - name: Deploy to node0
+        continue-on-error: true
         if: ${{ github.event.inputs.deploy == 'true' || (github.ref == 'refs/heads/main' && github.event_name == 'push') }}
         env:
           NODE0_SSH_KEY: ${{ secrets.NODE0_SSH_KEY }}
