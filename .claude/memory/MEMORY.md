@@ -47,7 +47,16 @@ See `.claude/skills/architecture/SKILL.md` for ADR log.
 ## Social / Community Links
 - Discord: https://discord.com/invite/F3dRVaP8
 - GitHub: https://github.com/rillcoin/rill
-- X/Twitter: https://x.com/rillcoin (placeholder — confirm handle)
+- X/Twitter: https://x.com/RillCoin
+
+## Discord Bot
+- App ID: 1473971397381456004
+- Token: in `/etc/rill/faucet.env` on node0
+- Guild ID: 1473262369546174631
+- #announcements channel ID: 1473269522092789894
+- Role: RillBot (Send Messages, Embed Links, Manage Messages, Mention Everyone)
+- IMPORTANT: Must POST via node0 server (local IP is Cloudflare-blocked)
+- IMPORTANT: Must include `User-Agent: DiscordBot (https://rillcoin.com, 1.0)` header
 
 ## Crate Status (dev workspace — separate from marketing)
 - rill-core: complete

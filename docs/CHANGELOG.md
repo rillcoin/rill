@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - marketing: Community Launch — Discord + X Thread
+
+**First public announcement posted across Discord and X.**
+
+#### Discord
+- Bot (RillCoin Faucet → renamed to RillCoin) invited to server, `RillBot` role created with Send Messages, Embed Links, Manage Messages, Mention Everyone permissions
+- Announcement posted to #announcements in two parts with `@everyone` mention and `— *The RillCoin Core Team*` signature
+- Announcement pinned in #announcements
+- Bot now posts via DigitalOcean server (local IP was Cloudflare-blocked); User-Agent header required
+
+#### X / Twitter
+- Drafted and trimmed 8-tweet thread covering: testnet launch, four live sites, tech stack, concentration decay, open source, early adopter incentives, roadmap, CTA
+- Saved to `marketing/outputs/twitter-launch-thread-2026-02-19.md`
+
+#### Links updated
+- Discord: `discord.gg/rillcoin` → `discord.com/invite/F3dRVaP8` (Footer.tsx)
+- X/Twitter: `x.com/rillcoin` → `x.com/RillCoin` (Footer.tsx)
+
+#### Early adopter programme defined
+- **Testnet Pioneer** — claim from faucet or mine a block before mainnet
+- **Bug Hunter** — confirmed bug report earns permanent role + changelog credit
+
+**Commits:** `a2e7c9f` (Discord + HTTPS), `1cdc2c6` (X link)
+
+---
+
 ### 2026-02-19 - marketing: Full Web Presence Live — Four Sites, All HTTPS
 
 **All four rillcoin.com properties are live with HTTPS and auto-renewing Let's Encrypt certs.**
