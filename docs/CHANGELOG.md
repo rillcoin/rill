@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - marketing: Full Web Presence Live — Four Sites, All HTTPS
+
+**All four rillcoin.com properties are live with HTTPS and auto-renewing Let's Encrypt certs.**
+
+#### rillcoin.com (main landing site)
+- Built from Pencil design — Web 4.0 dark aesthetic with animated orb, bento grid, decay ring, CLI section, CTA, footer
+- Next.js 14 App Router, `output: "export"`, Tailwind CSS v3
+- Fonts: Instrument Serif (headings), Inter (body), JetBrains Mono (code)
+- Deployed to `/var/www/rillcoin` via rsync; HTTPS via certbot
+
+#### faucet.rillcoin.com
+- Branded Next.js UI matching rillcoin.com design system
+- Connects to Rust faucet backend at port 8080 via nginx proxy
+- Address validation (`trill1...` prefix), rate limit feedback, network status bar
+- HTTPS cert issued this session (was missing previously)
+
+#### explorer.rillcoin.com
+- Block explorer with stats bar (height, supply, decay pool, peers)
+- Latest blocks table, search by height/hash/txid/address
+- Detail pages: `/block?hash=`, `/tx?id=`, `/address?addr=` (query params for static export)
+- nginx proxies `/rpc` → node JSON-RPC at `127.0.0.1:18332` with CORS headers
+
+#### docs.rillcoin.com (new this session)
+- 8-page documentation site built from Rust source content
+- Pages: Home, Whitepaper, Protocol, Decay Mechanics, Mining, CLI Reference, RPC Reference, Node Setup
+- Sidebar navigation with active page highlighting, mobile hamburger nav
+- Deployed to `/var/www/rill-docs`; DNS A record added via IONOS; HTTPS cert issued
+
+#### Sitewide
+- HTTP → HTTPS 301 redirect enforced on all four vhosts (verified curl checks)
+- Discord link updated: `discord.gg/rillcoin` → `discord.com/invite/F3dRVaP8`
+- All social/docs links pointing to real URLs (no `#` placeholders)
+
+**Commits:** `16b44c6` (initial sites), `9f18e8a` (docs), `a2e7c9f` (Discord + HTTPS)
+
+---
+
 ### 2026-02-19 - infra: Faucet Deployed to Testnet node0
 
 **Faucet live at `http://206.189.202.181` (DNS `faucet.rillcoin.org` pending propagation)**
