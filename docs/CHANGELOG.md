@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - infra: Faucet Deployed to Testnet node0
+
+**Faucet live at `http://206.189.202.181` (DNS `faucet.rillcoin.org` pending propagation)**
+
+- Built `rill-faucet` release binary on node0 (`206.189.202.181`)
+- Installed systemd unit (`rill-faucet.service`) — running as `rill` user with hardening
+- nginx reverse proxy configured (port 80 → 127.0.0.1:8080)
+- DigitalOcean cloud firewall opened for TCP 80 + 443
+- Faucet wallet created at `/var/lib/rill/faucet.dat`
+- Discord bot token, public key, and application ID added to `/etc/rill/faucet.env`
+- `/faucet` slash command registered with Discord at startup
+- New miner wallet created (`/root/.rill/miner-new.dat`) — old wallet password lost
+- Miner service updated to mine to new accessible wallet address
+- Credentials saved to `.claude/memory/credentials.md` (gitignored)
+
+**Pending:**
+- Fund faucet wallet (needs coinbase maturity on new miner wallet, ~few blocks)
+- DNS propagation for `faucet.rillcoin.org` + certbot HTTPS
+
 ### 2026-02-19 - rill-faucet: Testnet Faucet Binary
 
 **New binary: `bins/rill-faucet`**
