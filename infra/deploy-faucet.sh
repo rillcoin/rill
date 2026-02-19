@@ -316,7 +316,7 @@ section "Deploy complete"
 
 info "Faucet running on ${NODE0_IP}"
 info ""
-info "  HTTP (via nginx):  http://faucet.rillcoin.org  (once DNS is set)"
+info "  HTTP (via nginx):  http://faucet.rillcoin.com  (once DNS is set)"
 info "  Direct check:      curl http://${NODE0_IP}/api/status"
 info ""
 info "Useful commands on node0:"
@@ -330,5 +330,5 @@ if command -v doctl &>/dev/null; then
     info "Enable HTTPS once DNS is pointed at ${NODE0_IP}:"
     info "  $(./infra/do-testnet.sh ssh 0) # SSH in"
     info "  sudo apt-get install -y certbot python3-certbot-nginx"
-    info "  sudo certbot --nginx -d faucet.rillcoin.org"
+    info "  sudo certbot --nginx -d faucet.rillcoin.com"
 fi

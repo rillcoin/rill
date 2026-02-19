@@ -1,0 +1,3599 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "PsX8H",
+      "x": 0,
+      "y": 0,
+      "name": "RillCoin Landing",
+      "width": 1440,
+      "fill": "$bg-void",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "V4tn5",
+          "name": "Nav",
+          "width": "fill_container",
+          "height": 72,
+          "fill": "#05080FCC",
+          "stroke": {
+            "align": "outside",
+            "thickness": {
+              "bottom": 1
+            },
+            "fill": "$border-subtle"
+          },
+          "padding": [
+            0,
+            80
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "vw0o9",
+              "name": "navLogo",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "F8vF7",
+                  "name": "navIcon",
+                  "width": 32,
+                  "height": 32,
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 135,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#4A8AF4",
+                        "position": 0
+                      },
+                      {
+                        "color": "#5DE0F2",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 9999
+                },
+                {
+                  "type": "text",
+                  "id": "IH5yy",
+                  "name": "navWordmark",
+                  "fill": "$text-primary",
+                  "content": "RILL",
+                  "fontFamily": "Inter",
+                  "fontSize": 18,
+                  "fontWeight": "700",
+                  "letterSpacing": 4
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "81Xjd",
+              "name": "navLinks",
+              "gap": 36,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xjHlA",
+                  "name": "navLink1",
+                  "fill": "$text-secondary",
+                  "content": "Protocol",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "uL4vR",
+                  "name": "navLink2",
+                  "fill": "$text-secondary",
+                  "content": "Docs",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "KB26N",
+                  "name": "navLink3",
+                  "fill": "$text-secondary",
+                  "content": "Testnet",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "92CPF",
+                  "name": "navLink4",
+                  "fill": "$text-secondary",
+                  "content": "GitHub",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VmLYD",
+              "name": "navCTA",
+              "cornerRadius": 6,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#3B82F660"
+              },
+              "padding": [
+                10,
+                20
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tN686",
+                  "name": "navCTAText",
+                  "fill": "$blue-400",
+                  "content": "Get Testnet RILL",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "QnwFC",
+          "name": "Hero",
+          "width": "fill_container",
+          "fill": [
+            {
+              "type": "gradient",
+              "gradientType": "linear",
+              "enabled": true,
+              "rotation": 180,
+              "size": {
+                "height": 1
+              },
+              "colors": [
+                {
+                  "color": "#05080F",
+                  "position": 0
+                },
+                {
+                  "color": "#0C1A2E",
+                  "position": 0.5
+                },
+                {
+                  "color": "#05080F",
+                  "position": 1
+                }
+              ]
+            },
+            {
+              "type": "gradient",
+              "gradientType": "radial",
+              "enabled": true,
+              "rotation": 0,
+              "size": {
+                "width": 1,
+                "height": 0.8
+              },
+              "colors": [
+                {
+                  "color": "#3B82F625",
+                  "position": 0
+                },
+                {
+                  "color": "#05080F00",
+                  "position": 1
+                }
+              ],
+              "center": {
+                "y": 0.4
+              }
+            }
+          ],
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            120,
+            80,
+            100,
+            80
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "zPhBf",
+              "name": "heroBadge",
+              "fill": "#22D3EE18",
+              "cornerRadius": 4,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#22D3EE40"
+              },
+              "gap": 8,
+              "padding": [
+                6,
+                14
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "NJuRm",
+                  "name": "heroBadgeDot",
+                  "fill": "$cyan-400",
+                  "width": 6,
+                  "height": 6
+                },
+                {
+                  "type": "text",
+                  "id": "oe10P",
+                  "name": "heroBadgeText",
+                  "fill": "$cyan-400",
+                  "content": "TESTNET LIVE",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "wBS4O",
+              "name": "heroHeadline",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": 880,
+              "content": "Wealth should\nflow like water.",
+              "lineHeight": 1.05,
+              "textAlign": "center",
+              "fontFamily": "Instrument Serif",
+              "fontSize": 80
+            },
+            {
+              "type": "text",
+              "id": "878nM",
+              "name": "heroSubline",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 620,
+              "content": "A proof-of-work cryptocurrency where holdings above thresholds decay to the mining pool. The more you hoard, the more flows back to active miners.",
+              "lineHeight": 1.65,
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 20
+            },
+            {
+              "type": "frame",
+              "id": "ivoK1",
+              "name": "heroCTARow",
+              "gap": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "qajbR",
+                  "name": "heroCTAPrimary",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 135,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#F97316",
+                        "position": 0
+                      },
+                      {
+                        "color": "#FB923C",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 6,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#F9731640",
+                    "offset": {
+                      "x": 0,
+                      "y": 8
+                    },
+                    "blur": 24
+                  },
+                  "padding": [
+                    14,
+                    28
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "K182F",
+                      "name": "heroCTAPrimaryText",
+                      "fill": "#0A1628",
+                      "content": "Get Testnet RILL",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hrJob",
+                  "name": "heroCTASecondary",
+                  "cornerRadius": 6,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#3B82F640"
+                  },
+                  "padding": [
+                    14,
+                    28
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8QOTq",
+                      "name": "heroCTASecondaryText",
+                      "fill": "$blue-400",
+                      "content": "View on GitHub",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "hbVFB",
+              "name": "heroTrustLine",
+              "fill": "$text-muted",
+              "content": "Open source  ·  Ed25519 signatures  ·  BLAKE3 Merkle trees  ·  Testnet live",
+              "textAlign": "center",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "rtDGK",
+          "name": "How It Works",
+          "width": "fill_container",
+          "fill": "$bg-void",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            96,
+            80
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "JuYgb",
+              "name": "howHeader",
+              "layout": "vertical",
+              "gap": 14,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "tpqj0",
+                  "name": "howLabel",
+                  "fill": "$text-secondary",
+                  "content": "HOW IT WORKS",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 3
+                },
+                {
+                  "type": "text",
+                  "id": "ZQ3vq",
+                  "name": "howHeadline",
+                  "fill": "$text-primary",
+                  "content": "Three forces in balance",
+                  "textAlign": "center",
+                  "fontFamily": "Instrument Serif",
+                  "fontSize": 56
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "9GB5l",
+              "name": "howGrid",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "x1MrS",
+                  "name": "card1",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$bg-base",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$border-subtle"
+                  },
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 28,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "u5CKX",
+                      "name": "card1IconBg",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#3B82F618",
+                      "cornerRadius": 10,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "mD37G",
+                          "name": "card1Icon",
+                          "width": 22,
+                          "height": 22,
+                          "iconFontName": "cpu",
+                          "iconFontFamily": "lucide",
+                          "fill": "$blue-500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "KEK73",
+                      "name": "card1Title",
+                      "fill": "$text-primary",
+                      "content": "Proof of Work",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "YZw8t",
+                      "name": "card1Desc",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "SHA-256 block validation with adjustable difficulty. Miners earn block rewards for extending the chain — no shortcuts, no free rides.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Inter",
+                      "fontSize": 15
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Co80V",
+                  "name": "card2",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$bg-base",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$border-subtle"
+                  },
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 28,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "95TYd",
+                      "name": "card2IconBg",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#22D3EE18",
+                      "cornerRadius": 10,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "1XMXX",
+                          "name": "card2Icon",
+                          "width": 22,
+                          "height": 22,
+                          "iconFontName": "waves",
+                          "iconFontFamily": "lucide",
+                          "fill": "$cyan-400"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "jgsTR",
+                      "name": "card2Title",
+                      "fill": "$text-primary",
+                      "content": "Concentration Decay",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "nau0K",
+                      "name": "card2Desc",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Holdings above defined thresholds decay progressively. The more wealth concentrates in one address, the faster it flows outward. Designed for circulation, not accumulation.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Inter",
+                      "fontSize": 15
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "PQXAp",
+                  "name": "card3",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "$bg-base",
+                  "cornerRadius": 10,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "$border-subtle"
+                  },
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 28,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "HZk0V",
+                      "name": "card3IconBg",
+                      "width": 44,
+                      "height": 44,
+                      "fill": "#F9731618",
+                      "cornerRadius": 10,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "5ol2A",
+                          "name": "card3Icon",
+                          "width": 22,
+                          "height": 22,
+                          "iconFontName": "arrow-left-right",
+                          "iconFontFamily": "lucide",
+                          "fill": "$orange-500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "S488c",
+                      "name": "card3Title",
+                      "fill": "$text-primary",
+                      "content": "Active Circulation",
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "JP0Lt",
+                      "name": "card3Desc",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Decayed holdings flow directly to the mining pool, rewarding active participants. Dormant wealth becomes fuel for the network. Wealth flows like water.",
+                      "lineHeight": 1.6,
+                      "fontFamily": "Inter",
+                      "fontSize": 15
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "9WwpO",
+          "name": "Stats Bar",
+          "width": "fill_container",
+          "height": 120,
+          "fill": "$bg-base",
+          "stroke": {
+            "align": "outside",
+            "thickness": {
+              "top": 1,
+              "bottom": 1
+            },
+            "fill": "$border-subtle"
+          },
+          "padding": [
+            0,
+            80
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "PqDNF",
+              "name": "stat1",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nGoCH",
+                  "name": "stat1Value",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 270,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#4A8AF4",
+                        "position": 0
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "content": "14",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 36,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "dwlnd",
+                  "name": "stat1Label",
+                  "fill": "$text-muted",
+                  "content": "ACTIVE NODES",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LfLFb",
+              "name": "stat2",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vI6rY",
+                  "name": "stat2Value",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 270,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#4A8AF4",
+                        "position": 0
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "content": "12,847",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 36,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "fWanu",
+                  "name": "stat2Label",
+                  "fill": "$text-muted",
+                  "content": "BLOCKS MINED",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "IabFQ",
+              "name": "stat3",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "YLPu1",
+                  "name": "stat3Value",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 270,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#4A8AF4",
+                        "position": 0
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "content": "1,000,000",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 36,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "wxksR",
+                  "name": "stat3Label",
+                  "fill": "$text-muted",
+                  "content": "CIRCULATING RILL",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "eSKkS",
+              "name": "stat4",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "GteVE",
+                  "name": "stat4Value",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 270,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#4A8AF4",
+                        "position": 0
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "content": "2,341",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 36,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "maayw",
+                  "name": "stat4Label",
+                  "fill": "$text-muted",
+                  "content": "DECAY EVENTS",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "wpHC2",
+          "name": "Decay Explainer",
+          "width": "fill_container",
+          "fill": "$bg-void",
+          "gap": 80,
+          "padding": [
+            96,
+            80
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "QLJha",
+              "name": "decayContent",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vdQ2O",
+                  "name": "decayLabel",
+                  "fill": "$blue-500",
+                  "content": "CONCENTRATION DECAY",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "600",
+                  "letterSpacing": 3
+                },
+                {
+                  "type": "text",
+                  "id": "E1tUc",
+                  "name": "decayHeadline",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "The more you hold,\nthe more flows out.",
+                  "lineHeight": 1.1,
+                  "fontFamily": "Instrument Serif",
+                  "fontSize": 52
+                },
+                {
+                  "type": "text",
+                  "id": "kEAln",
+                  "name": "decayBody",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Progressive concentration decay means holdings above defined thresholds lose value over time — not as a penalty, but as a circulation incentive. Dormant wealth flows back to active miners and keeps the network healthy.",
+                  "lineHeight": 1.65,
+                  "fontFamily": "Inter",
+                  "fontSize": 17
+                },
+                {
+                  "type": "frame",
+                  "id": "0bObu",
+                  "name": "decayCTA",
+                  "cornerRadius": 6,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#3B82F640"
+                  },
+                  "padding": [
+                    12,
+                    24
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "bTiOg",
+                      "name": "decayCTAText",
+                      "fill": "$blue-400",
+                      "content": "Read the whitepaper",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "EyRgd",
+              "name": "decayVisual",
+              "width": "fill_container",
+              "fill": "#060C1A",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "$border-subtle"
+              },
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "2w3CC",
+                  "name": "decayVisualBar",
+                  "width": "fill_container",
+                  "height": 40,
+                  "fill": "$bg-base",
+                  "stroke": {
+                    "align": "outside",
+                    "thickness": {
+                      "bottom": 1
+                    },
+                    "fill": "$border-subtle"
+                  },
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "THML6",
+                      "name": "dot1",
+                      "fill": "#EF444460",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "ADKDM",
+                      "name": "dot2",
+                      "fill": "#F59E0B60",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "Be2v9",
+                      "name": "dot3",
+                      "fill": "#10B98160",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "text",
+                      "id": "laYYq",
+                      "name": "barFilename",
+                      "fill": "#94A3B880",
+                      "content": "decay.rs",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "V5Lix",
+                  "name": "decayCode",
+                  "fill": "#94A3B8",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "// Progressive concentration decay\nfn apply_decay(balance: u64, threshold: u64) -> u64 {\n    if balance <= threshold {\n        return balance;\n    }\n    let excess = balance\n        .checked_sub(threshold)\n        .unwrap_or(0);\n    let rate = sigmoid_rate(excess, threshold);\n    let decay = excess\n        .checked_mul(rate)\n        .unwrap_or(0)\n        .checked_div(100_000_000)\n        .unwrap_or(0);\n    balance.saturating_sub(decay)\n}",
+                  "lineHeight": 1.7,
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "eS0NF",
+          "name": "Code Section",
+          "width": "fill_container",
+          "fill": "#030710",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            96,
+            80
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "aAjd0",
+              "name": "codeSectionLabel",
+              "fill": "$text-muted",
+              "content": "BUILT IN RUST",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600",
+              "letterSpacing": 3
+            },
+            {
+              "type": "text",
+              "id": "0BMT1",
+              "name": "codeSectionHeadline",
+              "fill": "$text-primary",
+              "content": "Consensus math. No floats. Ever.",
+              "textAlign": "center",
+              "fontFamily": "Instrument Serif",
+              "fontSize": 52
+            },
+            {
+              "type": "text",
+              "id": "jsa0D",
+              "name": "codeSectionSub",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 560,
+              "content": "Integer-only arithmetic with checked operations throughout. No rounding errors, no surprises at the consensus layer.",
+              "lineHeight": 1.6,
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 18
+            },
+            {
+              "type": "frame",
+              "id": "KnNFU",
+              "name": "codeBlock",
+              "width": 800,
+              "fill": "#05080F",
+              "cornerRadius": 12,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "$border-subtle"
+              },
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Jdfr5",
+                  "name": "codeBlockBar",
+                  "width": "fill_container",
+                  "height": 40,
+                  "fill": "$bg-base",
+                  "stroke": {
+                    "align": "outside",
+                    "thickness": {
+                      "bottom": 1
+                    },
+                    "fill": "$border-subtle"
+                  },
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "RTRkW",
+                      "name": "codeBarLeft",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "RVZ15",
+                          "name": "cbDot1",
+                          "fill": "#EF444460",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "Zu366",
+                          "name": "cbDot2",
+                          "fill": "#F59E0B60",
+                          "width": 10,
+                          "height": 10
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "zj7hC",
+                          "name": "cbDot3",
+                          "fill": "#10B98160",
+                          "width": 10,
+                          "height": 10
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "HCp9k",
+                      "name": "codeBarFilename",
+                      "fill": "#94A3B860",
+                      "content": "rill-node  ·  src/main.rs",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "zC5Jy",
+                  "name": "codeText",
+                  "fill": "#94A3B8",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "$ rill-cli wallet create\n  → address: rl1qx7f3k9m2...\n  → saved to: ~/.rill/wallet.dat\n\n$ rill-cli balance\n  → balance:           10.00000000 RILL\n  → effective_balance:  9.97341200 RILL\n  → decay_applied:      0.02658800 RILL\n  → threshold_pct:         94.12%\n\n$ rill-cli send --to rl1qa4n... --amount 5.0\n  → txid: a3f8b2c1d4e9...\n  → status: broadcast",
+                  "lineHeight": 1.75,
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 13
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ds5aD",
+          "name": "CTA Strip",
+          "width": "fill_container",
+          "fill": [
+            {
+              "type": "gradient",
+              "gradientType": "linear",
+              "enabled": true,
+              "rotation": 180,
+              "size": {
+                "height": 1
+              },
+              "colors": [
+                {
+                  "color": "#05080F",
+                  "position": 0
+                },
+                {
+                  "color": "#0C1A2E",
+                  "position": 0.5
+                },
+                {
+                  "color": "#05080F",
+                  "position": 1
+                }
+              ]
+            },
+            {
+              "type": "gradient",
+              "gradientType": "radial",
+              "enabled": true,
+              "rotation": 0,
+              "size": {
+                "width": 0.8,
+                "height": 1
+              },
+              "colors": [
+                {
+                  "color": "#3B82F620",
+                  "position": 0
+                },
+                {
+                  "color": "#05080F00",
+                  "position": 1
+                }
+              ]
+            }
+          ],
+          "layout": "vertical",
+          "gap": 24,
+          "padding": [
+            96,
+            80
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "D2vi7",
+              "name": "ctaHeadline",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": 800,
+              "content": "The testnet is open.\nCome build.",
+              "lineHeight": 1.1,
+              "textAlign": "center",
+              "fontFamily": "Instrument Serif",
+              "fontSize": 64
+            },
+            {
+              "type": "text",
+              "id": "nogYs",
+              "name": "ctaSub",
+              "fill": "$text-secondary",
+              "content": "10 RILL per address, every 24 hours. No forms. No waitlist.",
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 18
+            },
+            {
+              "type": "frame",
+              "id": "gYnG6",
+              "name": "ctaBtn",
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 135,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#F97316",
+                    "position": 0
+                  },
+                  {
+                    "color": "#FB923C",
+                    "position": 1
+                  }
+                ]
+              },
+              "cornerRadius": 6,
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#F9731650",
+                "offset": {
+                  "x": 0,
+                  "y": 8
+                },
+                "blur": 32
+              },
+              "padding": [
+                16,
+                36
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "JS8TK",
+                  "name": "ctaBtnText",
+                  "fill": "#0A1628",
+                  "content": "Get Testnet RILL",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dUiQg",
+          "name": "Footer",
+          "width": "fill_container",
+          "fill": "#030710",
+          "stroke": {
+            "align": "outside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "$border-subtle"
+          },
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            64,
+            80,
+            48,
+            80
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "PVpfA",
+              "name": "footerInner",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "EcEW4",
+                  "name": "col1",
+                  "width": 280,
+                  "layout": "vertical",
+                  "gap": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "yTX3i",
+                      "name": "col1LogoRow",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "cgeyS",
+                          "name": "col1LogoIcon",
+                          "width": 28,
+                          "height": 28,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#4A8AF4",
+                                "position": 0
+                              },
+                              {
+                                "color": "#5DE0F2",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 9999
+                        },
+                        {
+                          "type": "text",
+                          "id": "x0Xst",
+                          "name": "col1LogoText",
+                          "fill": "$text-primary",
+                          "content": "RILL",
+                          "fontFamily": "Inter",
+                          "fontSize": 16,
+                          "fontWeight": "700",
+                          "letterSpacing": 4
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "f3Y83",
+                      "name": "col1Tagline",
+                      "fill": "$text-muted",
+                      "textGrowth": "fixed-width",
+                      "width": 240,
+                      "content": "Wealth should flow like water. A proof-of-work cryptocurrency with progressive concentration decay.",
+                      "lineHeight": 1.65,
+                      "fontFamily": "Inter",
+                      "fontSize": 14
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hTk8v",
+                  "name": "col2",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jHtA1",
+                      "name": "col2Heading",
+                      "fill": "$text-muted",
+                      "content": "PROTOCOL",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "ROTsH",
+                      "name": "col2Link1",
+                      "fill": "#94A3B8",
+                      "content": "How it works",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "XbAZp",
+                      "name": "col2Link2",
+                      "fill": "#94A3B8",
+                      "content": "Decay mechanics",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "WkqZ4",
+                      "name": "col2Link3",
+                      "fill": "#94A3B8",
+                      "content": "Tokenomics",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IhUZL",
+                      "name": "col2Link4",
+                      "fill": "#94A3B8",
+                      "content": "Whitepaper",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "gMxea",
+                  "name": "col3",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zkg4R",
+                      "name": "col3Heading",
+                      "fill": "$text-muted",
+                      "content": "COMMUNITY",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "CZOev",
+                      "name": "col3Link1",
+                      "fill": "#94A3B8",
+                      "content": "Discord",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "N0EZ1",
+                      "name": "col3Link2",
+                      "fill": "#94A3B8",
+                      "content": "X / Twitter",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "8I2VG",
+                      "name": "col3Link3",
+                      "fill": "#94A3B8",
+                      "content": "GitHub",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IxmCb",
+                      "name": "col3Link4",
+                      "fill": "#94A3B8",
+                      "content": "Faucet",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OMX1U",
+                  "name": "col4",
+                  "layout": "vertical",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "hy82q",
+                      "name": "col4Heading",
+                      "fill": "$text-muted",
+                      "content": "LEGAL",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "G1Hhb",
+                      "name": "col4Link1",
+                      "fill": "#94A3B8",
+                      "content": "Privacy",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "eYQJO",
+                      "name": "col4Link2",
+                      "fill": "#94A3B8",
+                      "content": "Terms",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ig34y",
+              "name": "footerBottom",
+              "width": "fill_container",
+              "stroke": {
+                "align": "outside",
+                "thickness": {
+                  "top": 1
+                },
+                "fill": "$border-subtle"
+              },
+              "padding": [
+                24,
+                0,
+                0,
+                0
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Owb4I",
+                  "name": "footerCopy",
+                  "fill": "$text-muted",
+                  "content": "© 2026 RillCoin. Open source software.",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ZACbk",
+                  "name": "footerBuilt",
+                  "fill": "#47556980",
+                  "content": "Built with Rust · Ed25519 · BLAKE3",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "h6Vre",
+      "x": 1640,
+      "y": 0,
+      "name": "RillCoin — Web 4.0",
+      "width": 1440,
+      "fill": "#020408",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "9cA2m",
+          "name": "Nav",
+          "width": "fill_container",
+          "height": 72,
+          "fill": "#020408",
+          "padding": [
+            0,
+            80
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "mOv3Y",
+              "name": "v2NavLogo",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ITYDv",
+                  "name": "v2NavIcon",
+                  "width": 28,
+                  "height": 28,
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 135,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#4A8AF4",
+                        "position": 0
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 9999
+                },
+                {
+                  "type": "text",
+                  "id": "5E4JN",
+                  "name": "v2NavWord",
+                  "fill": "#F1F5F9",
+                  "content": "RILL",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700",
+                  "letterSpacing": 5
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "4gKaE",
+              "name": "v2NavLinks",
+              "gap": 40,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "NAB2S",
+                  "name": "v2NL1",
+                  "fill": "#334155",
+                  "content": "Protocol",
+                  "fontFamily": "Inter",
+                  "fontSize": 13
+                },
+                {
+                  "type": "text",
+                  "id": "TTnr1",
+                  "name": "v2NL2",
+                  "fill": "#334155",
+                  "content": "Docs",
+                  "fontFamily": "Inter",
+                  "fontSize": 13
+                },
+                {
+                  "type": "text",
+                  "id": "TWzLk",
+                  "name": "v2NL3",
+                  "fill": "#94A3B8",
+                  "content": "Testnet",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "UrDnA",
+              "name": "v2NavCTA",
+              "fill": "#22D3EE12",
+              "cornerRadius": 3,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#22D3EE45"
+              },
+              "padding": [
+                9,
+                18
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "5fp7v",
+                  "name": "v2NavCTAText",
+                  "fill": "#22D3EE",
+                  "content": "Get Testnet RILL",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Prnii",
+          "name": "Hero",
+          "clip": true,
+          "width": "fill_container",
+          "height": 820,
+          "fill": [
+            {
+              "type": "gradient",
+              "gradientType": "linear",
+              "enabled": true,
+              "rotation": 180,
+              "size": {
+                "height": 1
+              },
+              "colors": [
+                {
+                  "color": "#020408",
+                  "position": 0
+                },
+                {
+                  "color": "#040B16",
+                  "position": 0.5
+                },
+                {
+                  "color": "#020408",
+                  "position": 1
+                }
+              ]
+            },
+            {
+              "type": "gradient",
+              "gradientType": "radial",
+              "enabled": true,
+              "rotation": 0,
+              "size": {
+                "width": 0.65,
+                "height": 0.85
+              },
+              "colors": [
+                {
+                  "color": "#0C2040",
+                  "position": 0
+                },
+                {
+                  "color": "#02040800",
+                  "position": 1
+                }
+              ],
+              "center": {
+                "x": 0.74,
+                "y": 0.44
+              }
+            }
+          ],
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "UZ0Pz",
+              "x": 680,
+              "y": 60,
+              "name": "v2HeroOrb",
+              "width": 620,
+              "height": 620
+            },
+            {
+              "type": "ellipse",
+              "id": "fSjTp",
+              "x": 658,
+              "y": 38,
+              "name": "v2Ring1",
+              "width": 664,
+              "height": 664,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#3B82F628"
+              }
+            },
+            {
+              "type": "ellipse",
+              "id": "19orJ",
+              "x": 610,
+              "y": -10,
+              "name": "v2Ring2",
+              "width": 760,
+              "height": 760,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#22D3EE15"
+              }
+            },
+            {
+              "type": "frame",
+              "id": "52pwL",
+              "x": 120,
+              "y": 155,
+              "name": "v2HeroContent",
+              "width": 550,
+              "layout": "vertical",
+              "gap": 28,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "YXUyW",
+                  "name": "v2Badge",
+                  "fill": "#22D3EE0E",
+                  "cornerRadius": 3,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#22D3EE30"
+                  },
+                  "gap": 8,
+                  "padding": [
+                    5,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "Rwc6Z",
+                      "name": "v2BadgeDot",
+                      "fill": "#22D3EE",
+                      "width": 5,
+                      "height": 5
+                    },
+                    {
+                      "type": "text",
+                      "id": "LqeUh",
+                      "name": "v2BadgeText",
+                      "fill": "#22D3EE",
+                      "content": "TESTNET LIVE",
+                      "fontFamily": "Inter",
+                      "fontSize": 10,
+                      "fontWeight": "600",
+                      "letterSpacing": 2.5
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "oPrOm",
+                  "name": "v2Headline",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#F1F5F9",
+                        "position": 0
+                      },
+                      {
+                        "color": "#F1F5F9",
+                        "position": 0.42
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 0.6
+                      },
+                      {
+                        "color": "#22D3EE",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "textGrowth": "fixed-width",
+                  "width": 550,
+                  "content": "Wealth\nflows.",
+                  "lineHeight": 1,
+                  "fontFamily": "Instrument Serif",
+                  "fontSize": 128
+                },
+                {
+                  "type": "frame",
+                  "id": "SEd8E",
+                  "name": "v2Rule",
+                  "width": "fill_container",
+                  "height": 1,
+                  "fill": "#94A3B815"
+                },
+                {
+                  "type": "text",
+                  "id": "UaJWx",
+                  "name": "v2HeroSub",
+                  "fill": "#4A5568",
+                  "textGrowth": "fixed-width",
+                  "width": 480,
+                  "content": "A proof-of-work cryptocurrency with progressive concentration decay. Holdings above thresholds flow back to active miners.",
+                  "lineHeight": 1.65,
+                  "fontFamily": "Inter",
+                  "fontSize": 18
+                },
+                {
+                  "type": "frame",
+                  "id": "em9y1",
+                  "name": "v2CTARow",
+                  "gap": 16,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "FCNu5",
+                      "name": "v2CTA1",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 135,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#F97316",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FB923C",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "cornerRadius": 4,
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#F9731645",
+                        "offset": {
+                          "x": 0,
+                          "y": 8
+                        },
+                        "blur": 28
+                      },
+                      "padding": [
+                        14,
+                        28
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FFIAY",
+                          "name": "v2CTA1Text",
+                          "fill": "#0A0F1A",
+                          "content": "Get Testnet RILL",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DNQQJ",
+                      "name": "v2CTA2",
+                      "cornerRadius": 4,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#3B82F638"
+                      },
+                      "padding": [
+                        14,
+                        28
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "iZJhC",
+                          "name": "v2CTA2Text",
+                          "fill": "#3B82F6",
+                          "content": "Read the docs",
+                          "fontFamily": "Inter",
+                          "fontSize": 14
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "nSemV",
+                  "name": "v2Trust",
+                  "fill": "#1E2A38",
+                  "content": "Open source  ·  Ed25519  ·  BLAKE3  ·  Rust 2024",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "25Cgp",
+              "x": 1096,
+              "y": 144,
+              "name": "dc1",
+              "fill": "#060E1C",
+              "cornerRadius": 6,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#22D3EE20"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "8rwLJ",
+                  "name": "dc1Label",
+                  "fill": "#22D3EE60",
+                  "content": "THRESHOLD",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 9,
+                  "fontWeight": "500",
+                  "letterSpacing": 1.5
+                },
+                {
+                  "type": "text",
+                  "id": "CYLZY",
+                  "name": "dc1Value",
+                  "fill": "#22D3EE",
+                  "content": "94.12%",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GEq6I",
+              "x": 1248,
+              "y": 408,
+              "name": "dc2",
+              "fill": "#060E1C",
+              "cornerRadius": 6,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#3B82F620"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "cuxTg",
+                  "name": "dc2Label",
+                  "fill": "#3B82F660",
+                  "content": "DECAY RATE",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 9,
+                  "fontWeight": "500",
+                  "letterSpacing": 1.5
+                },
+                {
+                  "type": "text",
+                  "id": "fcTZF",
+                  "name": "dc2Value",
+                  "fill": "#60A5FA",
+                  "content": "0.024%",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "QAtBf",
+              "x": 872,
+              "y": 618,
+              "name": "dc3",
+              "fill": "#060E1C",
+              "cornerRadius": 6,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#F9731620"
+              },
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                10,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ttnaK",
+                  "name": "dc3Label",
+                  "fill": "#F9731660",
+                  "content": "DAILY DRIP",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 9,
+                  "fontWeight": "500",
+                  "letterSpacing": 1.5
+                },
+                {
+                  "type": "text",
+                  "id": "1bkgr",
+                  "name": "dc3Value",
+                  "fill": "#F97316",
+                  "content": "10 RILL",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "cbDmm",
+          "name": "Bento",
+          "width": "fill_container",
+          "fill": "#020408",
+          "layout": "vertical",
+          "gap": 32,
+          "padding": 80,
+          "children": [
+            {
+              "type": "frame",
+              "id": "0Bdpb",
+              "name": "bentoTop",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "end",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "BN7Gu",
+                  "name": "bentoLabel",
+                  "fill": "#1E2D3D",
+                  "content": "THE PROTOCOL",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 3
+                },
+                {
+                  "type": "text",
+                  "id": "Df67t",
+                  "name": "bentoTitle",
+                  "fill": "#F1F5F9",
+                  "content": "Three forces in balance.",
+                  "fontFamily": "Instrument Serif",
+                  "fontSize": 36
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "vig7v",
+              "name": "bentoGrid",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "muVCt",
+                  "name": "bentoRow1",
+                  "width": "fill_container",
+                  "gap": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "UQ6Cd",
+                      "name": "decayCard",
+                      "width": 854,
+                      "height": 320,
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "radial",
+                        "enabled": true,
+                        "rotation": 0,
+                        "size": {
+                          "width": 0.8,
+                          "height": 0.8
+                        },
+                        "colors": [
+                          {
+                            "color": "#0C2448",
+                            "position": 0
+                          },
+                          {
+                            "color": "#060C18",
+                            "position": 1
+                          }
+                        ],
+                        "center": {
+                          "x": 0.9,
+                          "y": 0.1
+                        }
+                      },
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#3B82F618"
+                      },
+                      "layout": "vertical",
+                      "gap": 16,
+                      "padding": 36,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "SNZRW",
+                          "name": "decayCardNum",
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 270,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#4A8AF4",
+                                "position": 0
+                              },
+                              {
+                                "color": "#22D3EE",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "content": "10%",
+                          "lineHeight": 1,
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 88,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "qlL6c",
+                          "name": "decayCardLabel",
+                          "fill": "#334155",
+                          "content": "MAX DECAY RATE  /  per epoch",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "500",
+                          "letterSpacing": 1.5
+                        },
+                        {
+                          "type": "text",
+                          "id": "ycyan",
+                          "name": "decayCardDesc",
+                          "fill": "#4A5568",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Holdings above the concentration threshold decay progressively. Sigmoid curve. Fixed-point math. No floats.",
+                          "lineHeight": 1.6,
+                          "fontFamily": "Inter",
+                          "fontSize": 15
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "32jt5",
+                      "name": "powCard",
+                      "width": 406,
+                      "height": 320,
+                      "fill": "#060C18",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#94A3B810"
+                      },
+                      "layout": "vertical",
+                      "gap": 20,
+                      "padding": 36,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "UHOsG",
+                          "name": "powIconBg",
+                          "width": 40,
+                          "height": 40,
+                          "fill": "#3B82F615",
+                          "cornerRadius": 8,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "RfFLW",
+                              "name": "powIcon",
+                              "width": 20,
+                              "height": 20,
+                              "iconFontName": "cpu",
+                              "iconFontFamily": "lucide",
+                              "fill": "#3B82F6"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "peMFF",
+                          "name": "powTitle",
+                          "fill": "#F1F5F9",
+                          "content": "Proof of Work",
+                          "fontFamily": "Inter",
+                          "fontSize": 20,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "6wiHb",
+                          "name": "powDesc",
+                          "fill": "#334155",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "SHA-256 block validation. Adjustable difficulty. Miners earn block rewards for extending the chain.",
+                          "lineHeight": 1.65,
+                          "fontFamily": "Inter",
+                          "fontSize": 14
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "LTd0S",
+                  "name": "bentoRow2",
+                  "width": "fill_container",
+                  "gap": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "0uvjo",
+                      "name": "nodesCard",
+                      "width": 406,
+                      "height": 200,
+                      "fill": "#060C18",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#94A3B810"
+                      },
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": 36,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "coC3i",
+                          "name": "nodesNum",
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 270,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#4A8AF4",
+                                "position": 0
+                              },
+                              {
+                                "color": "#22D3EE",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "content": "14",
+                          "lineHeight": 1,
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 72,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "0XGyi",
+                          "name": "nodesLabel",
+                          "fill": "#1E2D3D",
+                          "content": "ACTIVE NODES",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "frame",
+                          "id": "o3TP7",
+                          "name": "nodesStatus",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "M62j8",
+                              "name": "nodesDot",
+                              "fill": "#10B981",
+                              "width": 6,
+                              "height": 6
+                            },
+                            {
+                              "type": "text",
+                              "id": "q955k",
+                              "name": "nodesStatusText",
+                              "fill": "#10B98180",
+                              "content": "network online",
+                              "fontFamily": "JetBrains Mono",
+                              "fontSize": 10,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ySP6b",
+                      "name": "circCard",
+                      "width": 854,
+                      "height": 200,
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 270,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#06101E",
+                            "position": 0
+                          },
+                          {
+                            "color": "#040A14",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#94A3B810"
+                      },
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "iItYe",
+                          "name": "circInner",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "235h4",
+                              "name": "circLeft",
+                              "width": "fill_container",
+                              "height": "fill_container",
+                              "layout": "vertical",
+                              "gap": 16,
+                              "padding": 36,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "7i9lR",
+                                  "name": "circLabel",
+                                  "fill": "#1E2D3D",
+                                  "content": "ACTIVE CIRCULATION",
+                                  "fontFamily": "JetBrains Mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "600",
+                                  "letterSpacing": 2
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "NSI2n",
+                                  "name": "circTitle",
+                                  "fill": "#F1F5F9",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Wealth that doesn't move, moves anyway.",
+                                  "lineHeight": 1.2,
+                                  "fontFamily": "Instrument Serif",
+                                  "fontSize": 24
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fHlw6",
+                              "name": "circRight",
+                              "width": 300,
+                              "height": "fill_container",
+                              "fill": "#040810",
+                              "stroke": {
+                                "align": "outside",
+                                "thickness": {
+                                  "left": 1
+                                },
+                                "fill": "#94A3B80C"
+                              },
+                              "layout": "vertical",
+                              "padding": [
+                                24,
+                                28
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "vAjwW",
+                                  "name": "circCode",
+                                  "fill": "#334155",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "// decay → pool\nexcess.saturating_mul(rate)\n  .checked_div(1e8 as u64)\n  .unwrap_or(0)",
+                                  "lineHeight": 1.7,
+                                  "fontFamily": "JetBrains Mono",
+                                  "fontSize": 12
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "uqEgz",
+          "name": "Stats Art",
+          "width": "fill_container",
+          "fill": "#020408",
+          "layout": "vertical",
+          "padding": 80,
+          "children": [
+            {
+              "type": "frame",
+              "id": "drrhw",
+              "name": "statsDivider",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "#0F1A28"
+            },
+            {
+              "type": "frame",
+              "id": "BOESO",
+              "name": "statsInner",
+              "width": "fill_container",
+              "height": 200,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ZHsVd",
+                  "name": "s1",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "aGkNN",
+                      "name": "s1Num",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 270,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#4A8AF4",
+                            "position": 0
+                          },
+                          {
+                            "color": "#22D3EE",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "content": "12,847",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 56,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "j27Sh",
+                      "name": "s1Label",
+                      "fill": "#1E2D3D",
+                      "content": "BLOCKS MINED",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "500",
+                      "letterSpacing": 2
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "yxyyl",
+                  "name": "s2",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "o21H2",
+                      "name": "s2Num",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 270,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#4A8AF4",
+                            "position": 0
+                          },
+                          {
+                            "color": "#22D3EE",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "content": "1,000,000",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 56,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "xoOk6",
+                      "name": "s2Label",
+                      "fill": "#1E2D3D",
+                      "content": "CIRCULATING RILL",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "500",
+                      "letterSpacing": 2
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cdQWc",
+                  "name": "s3",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "T35Sl",
+                      "name": "s3Num",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 270,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#4A8AF4",
+                            "position": 0
+                          },
+                          {
+                            "color": "#22D3EE",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "content": "2,341",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 56,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "GOKbG",
+                      "name": "s3Label",
+                      "fill": "#1E2D3D",
+                      "content": "DECAY EVENTS",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "500",
+                      "letterSpacing": 2
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "3U4RR",
+                  "name": "s4",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "fM6gh",
+                      "name": "s4Num",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 270,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#4A8AF4",
+                            "position": 0
+                          },
+                          {
+                            "color": "#22D3EE",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "content": "14",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 56,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "m8L8t",
+                      "name": "s4Label",
+                      "fill": "#1E2D3D",
+                      "content": "ACTIVE NODES",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "500",
+                      "letterSpacing": 2
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RpbG6",
+              "name": "statsBottomDiv",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "#0F1A28"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xjdm8",
+          "name": "Decay Ring",
+          "width": "fill_container",
+          "height": 640,
+          "fill": "#020408",
+          "layout": "none",
+          "children": [
+            {
+              "type": "ellipse",
+              "id": "1iodC",
+              "x": 520,
+              "y": 80,
+              "name": "decayRingBg",
+              "fill": {
+                "type": "gradient",
+                "gradientType": "radial",
+                "enabled": true,
+                "rotation": 0,
+                "size": {
+                  "width": 1,
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#0C2448",
+                    "position": 0
+                  },
+                  {
+                    "color": "#02040800",
+                    "position": 1
+                  }
+                ]
+              },
+              "width": 400,
+              "height": 400
+            },
+            {
+              "type": "ellipse",
+              "id": "Sugwi",
+              "x": 520,
+              "y": 80,
+              "name": "decayRingOuter",
+              "width": 400,
+              "height": 400,
+              "stroke": {
+                "thickness": 40,
+                "fill": {
+                  "type": "gradient",
+                  "gradientType": "linear",
+                  "enabled": true,
+                  "rotation": 45,
+                  "size": {
+                    "height": 1
+                  },
+                  "colors": [
+                    {
+                      "color": "#1B58B0",
+                      "position": 0
+                    },
+                    {
+                      "color": "#22D3EE",
+                      "position": 0.6
+                    },
+                    {
+                      "color": "#22D3EE30",
+                      "position": 1
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "ellipse",
+              "id": "bbrCT",
+              "x": 556,
+              "y": 116,
+              "name": "decayRingInner",
+              "fill": "#020408",
+              "width": 328,
+              "height": 328
+            },
+            {
+              "type": "text",
+              "id": "TUZd9",
+              "x": 596,
+              "y": 186,
+              "name": "decayRingPct",
+              "fill": "#F1F5F9",
+              "content": "94%",
+              "lineHeight": 1,
+              "fontFamily": "Instrument Serif",
+              "fontSize": 88
+            },
+            {
+              "type": "text",
+              "id": "y82qB",
+              "x": 660,
+              "y": 295,
+              "name": "decayRingLbl",
+              "fill": "#334155",
+              "content": "threshold",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "HXCZV",
+              "x": 980,
+              "y": 160,
+              "name": "decayRightBlock",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "zbuTT",
+                  "name": "decayRightLabel",
+                  "fill": "#22D3EE50",
+                  "content": "CONCENTRATION DECAY",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 11,
+                  "fontWeight": "600",
+                  "letterSpacing": 3
+                },
+                {
+                  "type": "text",
+                  "id": "tv9oK",
+                  "name": "decayRightTitle",
+                  "fill": "#F1F5F9",
+                  "textGrowth": "fixed-width",
+                  "width": 380,
+                  "content": "The more you hold,\nthe more flows out.",
+                  "lineHeight": 1.1,
+                  "fontFamily": "Instrument Serif",
+                  "fontSize": 44
+                },
+                {
+                  "type": "text",
+                  "id": "xgUmn",
+                  "name": "decayRightBody",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": 380,
+                  "content": "Progressive decay redistributes dormant wealth to active miners. Not a penalty — a circulation incentive built into the protocol.",
+                  "lineHeight": 1.65,
+                  "fontFamily": "Inter",
+                  "fontSize": 16
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "zJZxc",
+          "name": "CTA",
+          "width": "fill_container",
+          "fill": [
+            {
+              "type": "gradient",
+              "gradientType": "linear",
+              "enabled": true,
+              "rotation": 180,
+              "size": {
+                "height": 1
+              },
+              "colors": [
+                {
+                  "color": "#020408",
+                  "position": 0
+                },
+                {
+                  "color": "#040C1A",
+                  "position": 0.5
+                },
+                {
+                  "color": "#020408",
+                  "position": 1
+                }
+              ]
+            },
+            {
+              "type": "gradient",
+              "gradientType": "radial",
+              "enabled": true,
+              "rotation": 0,
+              "size": {
+                "width": 0.6,
+                "height": 0.9
+              },
+              "colors": [
+                {
+                  "color": "#0C2448",
+                  "position": 0
+                },
+                {
+                  "color": "#02040800",
+                  "position": 1
+                }
+              ]
+            }
+          ],
+          "layout": "vertical",
+          "gap": 32,
+          "padding": [
+            100,
+            80
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "VjMOE",
+              "name": "ctaEyebrow",
+              "fill": "#22D3EE50",
+              "content": "TESTNET IS OPEN",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 11,
+              "fontWeight": "600",
+              "letterSpacing": 3
+            },
+            {
+              "type": "text",
+              "id": "7hQhD",
+              "name": "ctaHeadline",
+              "fill": "#F1F5F9",
+              "content": "Come build.",
+              "lineHeight": 1,
+              "textAlign": "center",
+              "fontFamily": "Instrument Serif",
+              "fontSize": 96
+            },
+            {
+              "type": "text",
+              "id": "oXBiX",
+              "name": "ctaSub",
+              "fill": "#334155",
+              "content": "10 RILL per address, every 24 hours. No forms. No waitlist.",
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 18
+            },
+            {
+              "type": "frame",
+              "id": "DXeM2",
+              "name": "ctaBtn",
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 135,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#F97316",
+                    "position": 0
+                  },
+                  {
+                    "color": "#FB923C",
+                    "position": 1
+                  }
+                ]
+              },
+              "cornerRadius": 4,
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#F9731650",
+                "offset": {
+                  "x": 0,
+                  "y": 8
+                },
+                "blur": 40
+              },
+              "padding": [
+                16,
+                40
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vTFRg",
+                  "name": "ctaBtnText",
+                  "fill": "#0A0F1A",
+                  "content": "Get Testnet RILL  →",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "iJP6h",
+              "name": "ctaTrust",
+              "fill": "#1A2535",
+              "content": "faucet.rillcoin.org  ·  /faucet on Discord",
+              "textAlign": "center",
+              "fontFamily": "JetBrains Mono",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qvUHG",
+          "name": "Footer",
+          "width": "fill_container",
+          "fill": "#020408",
+          "layout": "vertical",
+          "gap": 48,
+          "padding": [
+            60,
+            80
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "14tGJ",
+              "name": "footerBorder",
+              "width": "fill_container",
+              "height": 1,
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 90,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#02040800",
+                    "position": 0
+                  },
+                  {
+                    "color": "#1B3A6B",
+                    "position": 0.5
+                  },
+                  {
+                    "color": "#02040800",
+                    "position": 1
+                  }
+                ]
+              }
+            },
+            {
+              "type": "frame",
+              "id": "ZvVzk",
+              "name": "footerMain",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "szcHH",
+                  "name": "footerBrand",
+                  "width": 280,
+                  "layout": "vertical",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lZeSg",
+                      "name": "footerWordmark",
+                      "fill": "#F1F5F9",
+                      "content": "RILL",
+                      "fontFamily": "Instrument Serif",
+                      "fontSize": 28,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "rDxuq",
+                      "name": "footerTagline",
+                      "fill": "#334155",
+                      "content": "Wealth should flow like water.",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "I61Ka",
+                      "name": "footerNetwork",
+                      "fill": "#060E1C",
+                      "cornerRadius": 20,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#1B3A6B"
+                      },
+                      "gap": 8,
+                      "padding": [
+                        6,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "4LeTP",
+                          "name": "netDot",
+                          "fill": "#22D3EE",
+                          "width": 6,
+                          "height": 6
+                        },
+                        {
+                          "type": "text",
+                          "id": "DjMVF",
+                          "name": "netText",
+                          "fill": "#22D3EE80",
+                          "content": "Testnet Live",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CBqUn",
+                  "name": "footerLinks",
+                  "gap": 80,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "wQQBY",
+                      "name": "footerCol1",
+                      "layout": "vertical",
+                      "gap": 20,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BgurA",
+                          "name": "col1Head",
+                          "fill": "#334155",
+                          "content": "PROTOCOL",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "j0D7N",
+                          "name": "l1a",
+                          "fill": "#64748B",
+                          "content": "Whitepaper",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "yHcQI",
+                          "name": "l1b",
+                          "fill": "#64748B",
+                          "content": "Decay Mechanics",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "TaGTR",
+                          "name": "l1c",
+                          "fill": "#64748B",
+                          "content": "Block Explorer",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "eLKDf",
+                          "name": "l1d",
+                          "fill": "#64748B",
+                          "content": "Mining",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "3Giwg",
+                      "name": "footerCol2",
+                      "layout": "vertical",
+                      "gap": 20,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "f8QJk",
+                          "name": "col2Head",
+                          "fill": "#334155",
+                          "content": "COMMUNITY",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "qJe80",
+                          "name": "l2a",
+                          "fill": "#64748B",
+                          "content": "Discord",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "qUTST",
+                          "name": "l2b",
+                          "fill": "#64748B",
+                          "content": "X / Twitter",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "vNfM0",
+                          "name": "l2c",
+                          "fill": "#64748B",
+                          "content": "Forum",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "KIVPr",
+                          "name": "l2d",
+                          "fill": "#22D3EE80",
+                          "content": "Faucet",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "hwNaI",
+                      "name": "footerCol3",
+                      "layout": "vertical",
+                      "gap": 20,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "vhlln",
+                          "name": "col3Head",
+                          "fill": "#334155",
+                          "content": "DEVELOPERS",
+                          "fontFamily": "JetBrains Mono",
+                          "fontSize": 10,
+                          "fontWeight": "600",
+                          "letterSpacing": 2
+                        },
+                        {
+                          "type": "text",
+                          "id": "YO8Jp",
+                          "name": "l3a",
+                          "fill": "#64748B",
+                          "content": "GitHub",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "NYhId",
+                          "name": "l3b",
+                          "fill": "#64748B",
+                          "content": "RPC Docs",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "YQpM8",
+                          "name": "l3c",
+                          "fill": "#64748B",
+                          "content": "Node Setup",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "uGPJc",
+                          "name": "l3d",
+                          "fill": "#64748B",
+                          "content": "CLI Reference",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "TAHmT",
+              "name": "footerBottom",
+              "width": "fill_container",
+              "padding": [
+                20,
+                0
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "jvKuM",
+                  "name": "copyright",
+                  "fill": "#1A2535",
+                  "content": "© 2026 RillCoin. Open source. MIT License.",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "68oX5",
+                  "name": "footerLegal",
+                  "gap": 24,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "PobGn",
+                      "name": "legPrivacy",
+                      "fill": "#1A2535",
+                      "content": "Privacy",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "lTnVh",
+                      "name": "legTerms",
+                      "fill": "#1A2535",
+                      "content": "Terms",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HuNvd",
+                      "name": "legDot",
+                      "fill": "#0F1A28",
+                      "content": "·",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "JLMZO",
+                      "name": "legBuild",
+                      "fill": "#3B82F630",
+                      "content": "Built with Rust.",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "bg-base": {
+      "type": "color",
+      "value": "#0A1628"
+    },
+    "bg-raised": {
+      "type": "color",
+      "value": "#0F1E38"
+    },
+    "bg-void": {
+      "type": "color",
+      "value": "#05080F"
+    },
+    "blue-400": {
+      "type": "color",
+      "value": "#60A5FA"
+    },
+    "blue-500": {
+      "type": "color",
+      "value": "#3B82F6"
+    },
+    "border-subtle": {
+      "type": "color",
+      "value": "#94A3B814"
+    },
+    "cyan-400": {
+      "type": "color",
+      "value": "#22D3EE"
+    },
+    "orange-500": {
+      "type": "color",
+      "value": "#F97316"
+    },
+    "text-muted": {
+      "type": "color",
+      "value": "#475569"
+    },
+    "text-primary": {
+      "type": "color",
+      "value": "#F1F5F9"
+    },
+    "text-secondary": {
+      "type": "color",
+      "value": "#94A3B8"
+    }
+  }
+}
