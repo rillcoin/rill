@@ -3,7 +3,18 @@
 Cross-agent blockers and unresolved issues. Updated at session end.
 
 ## Active Blockers
-(none)
+
+### Discord bot missing Manage Roles permission (discovered 2026-02-19)
+**Severity:** Low — cosmetic/community only, no protocol impact
+**Description:** Bot was invited with `permissions=2048` (SEND_MESSAGES only). Creating Discord roles via API requires `MANAGE_ROLES` (268435456). Attempt to create Testnet Pioneer and Bug Hunter roles returned 403.
+**Resolution needed:** Server admin adds Manage Roles to the RillBot role in Server Settings → Roles → RillBot, OR creates roles manually:
+- Testnet Pioneer: `#22D3EE` (cyan), hoisted, mentionable
+- Bug Hunter: `#F97316` (orange), hoisted, mentionable
+
+### Faucet wallet unfunded (discovered 2026-02-19)
+**Severity:** Medium — faucet cannot dispense RILL until funded
+**Description:** Faucet wallet (`trill1qnad7...`) has zero balance. Miner wallet needs coinbase UTXOs to mature (100 blocks) before funds can be sent to faucet.
+**Resolution needed:** Once miner coinbase UTXOs mature, send 5,000+ RILL to faucet wallet address.
 
 ## Resolved
 
