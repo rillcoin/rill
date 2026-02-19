@@ -20,23 +20,20 @@ Resolved stale process conflicts, deployed mempool-fix binaries, reset testnet c
 - Faucet wallet: `/var/lib/rill/faucet.dat`, balance: 0 (needs funding at height ≥ 101)
 - Faucet address: `trill1qnad7yk3l93nd35ddgs0ev5pq85n85qrzyls5zcahx29uxf7w9saq7jzz85`
 
-## Pending Action: Fund Faucet
-Once chain height ≥ 101 (COINBASE_MATURITY = 100 blocks), run:
-```
-python3 -c "
-import pty, os, sys
-pid = os.fork()
-if pid == 0:
-    os.execvp('/usr/local/bin/rill-cli', ['/usr/local/bin/rill-cli', '--testnet', 'wallet', 'send',
-        '--wallet', '/root/.rill/miner-new.dat',
-        '--to', 'trill1qnad7yk3l93nd35ddgs0ev5pq85n85qrzyls5zcahx29uxf7w9saq7jzz85',
-        '--amount', '5000'])
-else:
-    # feed password RillMiner2026xK9qP when prompted
-    pass
-"
-```
-(Or use the Python pty approach from previous sessions to supply password non-interactively)
+## Auto-Fund Faucet
+- Script `/root/fund_faucet.sh` running on node0 (uses `RILL_WALLET_PASSWORD` env var)
+- Polls every 30s, sends 5000 RILL when height ≥ 101
+- Currently at height 73 (28 blocks remaining)
+
+## CI/CD Pipeline
+- `.github/workflows/build-linux.yml` — auto-builds + deploys on push to main
+- GitHub secrets set: `NODE0_SSH_KEY`, `NODE0_HOST`
+- Runner: `ubuntu-latest` (4-core free tier), ~17 min cold / ~5 min cached
+- Note: `ubuntu-latest-32-cores` requires GitHub Team plan (queues forever on free)
+
+## Discord Roles
+- Testnet Pioneer: ID `1474179312780447754` (`#22D3EE`)
+- Bug Hunter: ID `1474179315137773628` (`#F97316`)
 
 ## Live Sites
 | Site | URL | Nginx root | Cert |

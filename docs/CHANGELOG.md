@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - ci: GitHub Actions CI/CD + Faucet Deploy Fix + Discord Roles
+
+**Automated build pipeline, fixed faucet crash, created community roles.**
+
+#### CI/CD Pipeline
+- Added `.github/workflows/build-linux.yml` — builds rill-node, rill-miner, rill-faucet, rill-cli for x86_64-unknown-linux-gnu
+- Runner: `ubuntu-latest` (4-core), cargo cache keyed on Cargo.lock
+- Auto-deploys to node0 on push to main via SSH (secrets: NODE0_SSH_KEY, NODE0_HOST)
+- Smoke tests all binaries before deploy; restarts rill-node + rill-faucet (skips miner)
+- Artifacts uploaded with 14-day retention
+
+#### Faucet Fix
+- Diagnosed rill-faucet systemd 203/EXEC crash loop — binary was macOS arm64 Mach-O, not Linux ELF
+- Built rill-faucet from source on node0 (8m 41s), deployed correct ELF binary
+- Wallet creation feature live: `GET /api/wallet/new` (BIP-39 mnemonic + testnet address), `/create-wallet` page
+- Auto-fund script (`/root/fund_faucet.sh`) running — sends 5000 RILL when height ≥ 101
+
+#### Discord Roles Created
+- Testnet Pioneer: `#22D3EE` (cyan), hoisted, mentionable — ID: 1474179312780447754
+- Bug Hunter: `#F97316` (orange), hoisted, mentionable — ID: 1474179315137773628
+- RillBot granted Manage Roles permission
+
+**Commits:** `60f3b36` (wallet page), `fe04ed0` (CI workflow), `f0169de` (runner fix), `8e261ec` (smoke test fix)
+
 ### 2026-02-19 - infra: Full Service Restart + Testnet Chain Reset
 
 **Resolved stale-process conflicts, deployed new binaries, and reset testnet to clean genesis.**
