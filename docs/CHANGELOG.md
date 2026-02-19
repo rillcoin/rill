@@ -2,6 +2,40 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - infra: Mempool Fix Deployed — Services Restored
+
+**Rebuilt rill-node and rill-miner on node0 with the mempool inclusion fix. All four services running.**
+
+#### Bug fixes deployed
+- `rill-node` + `rill-miner` rebuilt from commit `a2499c8` (mempool + coinbase maturity fix)
+- Binaries installed: `/usr/local/bin/rill-node` (16.7 MB), `/usr/local/bin/rill-miner` (5.7 MB)
+- Timestamp: Feb 19 19:09 UTC (verified new build, not cached Feb 18 binaries)
+- Build took ~2.5 hours on node0 due to full RocksDB C++ recompilation with `lto = "fat"`
+
+#### Services status (post-restart)
+- `rill-node` — active, height 452, chain synced, RPC on 18332
+- `rill-miner` — active, mining at height 453, ~20k H/s
+- `rill-faucet` — active, balance 0 (funding tx `c26927407a...` in mempool)
+- `rill-explorer` — active on port 8081
+
+#### Faucet re-funded
+- Mempool cleared on node restart (expected — mempool is in-memory only)
+- Re-sent 5000 RILL from miner wallet to faucet: txid `c26927407a51a5d126b3c24afa32bcd55cfb9bd612966671ae28e212ac0f8c38`
+- Tx confirmed in mempool (size=1, bytes=13317, fee=51500 rills)
+
+#### Explorer nginx fix
+- Added `/api/` proxy block to `nginx-explorer.conf` → port 8081 (Axum backend)
+- `https://explorer.rillcoin.com/api/stats` now returns JSON correctly (was serving Next.js HTML)
+- Updated `infra/nginx-explorer.conf` to match deployed config
+
+#### Known issue: difficulty adjustment
+- Chain mined ~150 blocks rapidly before node restart, LWMA cranked difficulty up
+- New block template: `difficulty_target=99951061891` (~100B vs ~6.4T at block 450)
+- At ~20k H/s, first block will take ~2.5 hours; LWMA self-corrects with 3x clamp per block
+- Difficulty will recover to normal (~2 min blocks) after ~5-6 blocks (~4 hours total)
+
+**Commits:** this session
+
 ### 2026-02-19 - marketing: Community Launch — Discord + X Thread
 
 **First public announcement posted across Discord and X.**
