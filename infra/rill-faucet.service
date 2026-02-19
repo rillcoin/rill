@@ -1,0 +1,52 @@
+# =============================================================================
+# rill-faucet.service — RillCoin Testnet Faucet
+#
+# Install:
+#   sudo cp infra/rill-faucet.service /etc/systemd/system/rill-faucet.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rill-faucet
+#
+# Config lives in /etc/rill/faucet.env (never commit that file).
+# Wallet lives in /var/lib/rill/faucet.dat
+# =============================================================================
+
+[Unit]
+Description=RillCoin Testnet Faucet
+Documentation=https://github.com/rillcoin/rill
+After=network-online.target rill-node.service
+Wants=network-online.target
+# Don't hard-require rill-node — faucet will just error on RPC calls
+# until the node comes up, then retry.
+
+[Service]
+Type=simple
+User=rill
+Group=rill
+
+# Credentials live in a separate file — never inline secrets in the unit.
+EnvironmentFile=/etc/rill/faucet.env
+
+ExecStart=/usr/local/bin/rill-faucet
+
+# Restart policy: always restart after 5s backoff.
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+# Logging: goes to journald (journalctl -u rill-faucet -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rill-faucet
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/rill
+PrivateTmp=yes
+
+# File descriptor limit (for tokio async runtime)
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
