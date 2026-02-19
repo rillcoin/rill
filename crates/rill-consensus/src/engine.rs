@@ -130,6 +130,188 @@ impl ConsensusEngine {
         Ok(base.saturating_add(pool_release))
     }
 
+    /// Create a block template that includes pending mempool transactions.
+    ///
+    /// This is the primary block-building entry point. It constructs a coinbase
+    /// transaction, then validates pending mempool transactions (filtering out
+    /// any that spend immature coinbase outputs or missing UTXOs) and computes
+    /// the merkle root over all included transactions.
+    ///
+    /// Transactions that fail UTXO lookup or coinbase maturity checks are
+    /// silently skipped rather than causing the template to fail. This is safe
+    /// because the miner should not be penalized for stale mempool entries.
+    ///
+    /// # Attack vectors
+    ///
+    /// - An adversary could flood the mempool with transactions spending
+    ///   immature coinbase outputs. We filter these out here so that blocks
+    ///   produced from templates never contain invalid transactions.
+    /// - The caller is responsible for size budgeting; the block validator's
+    ///   `validate_block_structure` enforces MAX_BLOCK_SIZE as a safety net.
+    /// - Double-spend across included transactions is prevented by tracking
+    ///   spent outpoints within the template.
+    pub fn create_block_template_with_txs(
+        &self,
+        coinbase_pubkey_hash: &Hash256,
+        timestamp: u64,
+        pending_txs: &[Transaction],
+    ) -> Result<Block, BlockError> {
+        let (tip_height, tip_hash) = self
+            .chain_state
+            .chain_tip()
+            .map_err(|_| BlockError::InvalidPrevHash)?;
+
+        let height = tip_height + 1;
+        let total_reward = self.total_reward(height)?;
+        let difficulty_target = self.difficulty_target(height)?;
+
+        // Ensure timestamp is strictly after the parent's to pass validation.
+        let parent_header = self
+            .chain_state
+            .get_block_header(&tip_hash)
+            .map_err(|_| BlockError::InvalidPrevHash)?
+            .ok_or(BlockError::InvalidPrevHash)?;
+        let timestamp = timestamp.max(parent_header.timestamp + 1);
+
+        // Encode height in coinbase for uniqueness (truncated to MAX_COINBASE_DATA).
+        let height_bytes = height.to_le_bytes();
+        let len = height_bytes.len().min(MAX_COINBASE_DATA);
+
+        // Select valid mempool transactions, filtering out those that:
+        // 1. Spend UTXOs that do not exist (stale mempool entries)
+        // 2. Spend immature coinbase outputs
+        // 3. Would cause a double-spend within this block
+        //
+        // Size budgeting is the caller's responsibility: the node layer uses
+        // `Mempool::select_transactions(max_block_bytes)` to pre-select
+        // transactions that fit within MAX_BLOCK_SIZE. The block validator's
+        // `validate_block_structure` check enforces the limit as a safety net.
+        let mut included_txs: Vec<Transaction> = Vec::new();
+        let mut spent_outpoints = std::collections::HashSet::new();
+        let mut total_fees: u64 = 0;
+
+        for tx in pending_txs {
+            // Attack vector: adversary submits coinbase-like transaction to mempool.
+            // Skip any transaction that claims to be a coinbase.
+            if tx.is_coinbase() {
+                continue;
+            }
+
+            // Validate all inputs: UTXO existence, coinbase maturity, no intra-block
+            // double-spend.
+            let mut tx_valid = true;
+            let mut tx_input_value: u64 = 0;
+            let mut tx_spent = Vec::new();
+
+            for input in &tx.inputs {
+                // Check for double-spend within the block being built.
+                if spent_outpoints.contains(&input.previous_output) {
+                    tx_valid = false;
+                    break;
+                }
+
+                // Look up the UTXO from chain state.
+                let utxo = match self.chain_state.get_utxo(&input.previous_output) {
+                    Ok(Some(u)) => u,
+                    _ => {
+                        tx_valid = false;
+                        break;
+                    }
+                };
+
+                // Enforce coinbase maturity: immature coinbase outputs cannot be spent.
+                if !utxo.is_mature(height) {
+                    tx_valid = false;
+                    break;
+                }
+
+                // Accumulate input value using checked arithmetic to prevent overflow.
+                tx_input_value = match tx_input_value.checked_add(utxo.output.value) {
+                    Some(v) => v,
+                    None => {
+                        tx_valid = false;
+                        break;
+                    }
+                };
+
+                tx_spent.push(input.previous_output.clone());
+            }
+
+            if !tx_valid {
+                continue;
+            }
+
+            // Verify outputs do not exceed inputs (fee must be non-negative).
+            let tx_output_value = match tx.total_output_value() {
+                Some(v) if v <= tx_input_value => v,
+                _ => continue,
+            };
+
+            let fee = tx_input_value - tx_output_value;
+
+            // Commit: mark outpoints as spent and include the transaction.
+            for op in tx_spent {
+                spent_outpoints.insert(op);
+            }
+
+            total_fees = total_fees.saturating_add(fee);
+            included_txs.push(tx.clone());
+        }
+
+        // Rebuild coinbase with total_reward + collected fees (checked arithmetic).
+        let coinbase_value = total_reward
+            .checked_add(total_fees)
+            .ok_or(BlockError::InvalidReward {
+                got: u64::MAX,
+                expected: total_reward,
+            })?;
+
+        let coinbase = Transaction {
+            version: 1,
+            inputs: vec![TxInput {
+                previous_output: OutPoint::null(),
+                signature: height_bytes[..len].to_vec(),
+                public_key: vec![],
+            }],
+            outputs: vec![TxOutput {
+                value: coinbase_value,
+                pubkey_hash: *coinbase_pubkey_hash,
+            }],
+            lock_time: height,
+        };
+
+        // Assemble all transactions: coinbase first, then selected mempool txs.
+        let mut all_txs = Vec::with_capacity(1 + included_txs.len());
+        all_txs.push(coinbase);
+        all_txs.extend(included_txs);
+
+        // Compute merkle root over all transaction IDs.
+        let txids: Vec<Hash256> = all_txs
+            .iter()
+            .enumerate()
+            .map(|(i, tx)| {
+                tx.txid().map_err(|e| BlockError::TransactionError {
+                    index: i,
+                    source: e,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let merkle_root = merkle::merkle_root(&txids);
+
+        Ok(Block {
+            header: BlockHeader {
+                version: 1,
+                prev_hash: tip_hash,
+                merkle_root,
+                timestamp,
+                difficulty_target,
+                nonce: 0,
+            },
+            transactions: all_txs,
+        })
+    }
+
     /// Look up a block timestamp by height from the chain state.
     ///
     /// Returns 0 if the block is not found (safety fallback for difficulty calc).
@@ -220,61 +402,10 @@ impl BlockProducer for ConsensusEngine {
         coinbase_pubkey_hash: &Hash256,
         timestamp: u64,
     ) -> Result<Block, BlockError> {
-        let (tip_height, tip_hash) = self
-            .chain_state
-            .chain_tip()
-            .map_err(|_| BlockError::InvalidPrevHash)?;
-
-        let height = tip_height + 1;
-        let total_reward = self.total_reward(height)?;
-        let difficulty_target = self.difficulty_target(height)?;
-
-        // Ensure timestamp is strictly after the parent's to pass validation.
-        let parent_header = self
-            .chain_state
-            .get_block_header(&tip_hash)
-            .map_err(|_| BlockError::InvalidPrevHash)?
-            .ok_or(BlockError::InvalidPrevHash)?;
-        let timestamp = timestamp.max(parent_header.timestamp + 1);
-
-        // Encode height in coinbase for uniqueness (truncated to MAX_COINBASE_DATA)
-        let height_bytes = height.to_le_bytes();
-        let len = height_bytes.len().min(MAX_COINBASE_DATA);
-        let sig_data = height_bytes[..len].to_vec();
-
-        let coinbase = Transaction {
-            version: 1,
-            inputs: vec![TxInput {
-                previous_output: OutPoint::null(),
-                signature: sig_data,
-                public_key: vec![],
-            }],
-            outputs: vec![TxOutput {
-                value: total_reward,
-                pubkey_hash: *coinbase_pubkey_hash,
-            }],
-            lock_time: height,
-        };
-
-        let txid = coinbase
-            .txid()
-            .map_err(|e| BlockError::TransactionError {
-                index: 0,
-                source: e,
-            })?;
-        let merkle_root = merkle::merkle_root(&[txid]);
-
-        Ok(Block {
-            header: BlockHeader {
-                version: 1,
-                prev_hash: tip_hash,
-                merkle_root,
-                timestamp,
-                difficulty_target,
-                nonce: 0,
-            },
-            transactions: vec![coinbase],
-        })
+        // Delegate to the extended method with no pending transactions.
+        // The node layer calls `create_block_template_with_txs` directly
+        // when mempool transactions are available.
+        self.create_block_template_with_txs(coinbase_pubkey_hash, timestamp, &[])
     }
 
     fn validate_block(&self, block: &Block) -> Result<(), BlockError> {

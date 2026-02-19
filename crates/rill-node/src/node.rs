@@ -960,14 +960,29 @@ impl Node {
 
     /// Create a block template for mining.
     ///
-    /// Delegates to the consensus engine's `create_block_template` method.
+    /// Selects pending transactions from the mempool (ordered by fee rate,
+    /// highest first) and passes them to the consensus engine which validates
+    /// each transaction (UTXO existence, coinbase maturity, double-spend
+    /// prevention) before including it in the template.
     pub fn create_block_template(
         &self,
         coinbase_pubkey_hash: &Hash256,
         timestamp: u64,
     ) -> Result<Block, RillError> {
+        // Select mempool transactions within the block size budget.
+        // The mempool's select_transactions handles fee-rate ordering and
+        // size budgeting. We pass MAX_BLOCK_SIZE as the budget; the consensus
+        // engine will do the final validation filtering.
+        let pending_txs: Vec<Transaction> = {
+            let pool = self.mempool.lock();
+            pool.select_transactions(rill_core::constants::MAX_BLOCK_SIZE)
+                .into_iter()
+                .map(|entry| entry.tx.clone())
+                .collect()
+        };
+
         self.consensus
-            .create_block_template(coinbase_pubkey_hash, timestamp)
+            .create_block_template_with_txs(coinbase_pubkey_hash, timestamp, &pending_txs)
             .map_err(RillError::from)
     }
 

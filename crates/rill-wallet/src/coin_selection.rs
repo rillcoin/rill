@@ -80,9 +80,13 @@ impl CoinSelector {
             .circulating_supply()
             .map_err(|e| WalletError::BuildError(e.to_string()))?;
 
-        // Build annotated UTXOs with decay info
+        // Build annotated UTXOs with decay info, skipping immature coinbase outputs.
         let mut wallet_utxos: Vec<WalletUtxo> = Vec::with_capacity(utxos.len());
         for (outpoint, entry) in utxos {
+            if !entry.is_mature(height) {
+                continue;
+            }
+
             let nominal = entry.output.value;
             let blocks_held = height.saturating_sub(entry.block_height);
 
@@ -268,6 +272,28 @@ mod tests {
         (outpoint, entry)
     }
 
+    fn make_coinbase_utxo(
+        index: u64,
+        value: u64,
+        cluster_id: Hash256,
+        block_height: u64,
+    ) -> (OutPoint, UtxoEntry) {
+        let outpoint = OutPoint {
+            txid: Hash256([index as u8; 32]),
+            index: 0,
+        };
+        let entry = UtxoEntry {
+            output: TxOutput {
+                value,
+                pubkey_hash: Hash256::ZERO,
+            },
+            block_height,
+            is_coinbase: true,
+            cluster_id,
+        };
+        (outpoint, entry)
+    }
+
     #[test]
     fn select_single_utxo_exact() {
         let cs = MockChainState::new(1_000_000 * constants::COIN);
@@ -435,5 +461,58 @@ mod tests {
         };
         let debug = format!("{utxo:?}");
         assert!(debug.contains("WalletUtxo"));
+    }
+
+    /// An immature coinbase UTXO (fewer than COINBASE_MATURITY confirmations)
+    /// must be excluded from coin selection entirely, causing InsufficientFunds
+    /// when it is the only available UTXO.
+    #[test]
+    fn immature_coinbase_utxo_is_excluded() {
+        let cs = MockChainState::new(1_000_000 * constants::COIN);
+        let dc = MockDecayCalculator;
+
+        // Mined at block 50; current height is 100 — only 50 confirmations,
+        // below COINBASE_MATURITY (100).
+        let utxos = vec![make_coinbase_utxo(
+            1,
+            10 * constants::COIN,
+            Hash256::ZERO,
+            50,
+        )];
+        let current_height = 100u64;
+
+        let err =
+            CoinSelector::select(&utxos, 1 * constants::COIN, 0, 0, &dc, &cs, current_height)
+                .unwrap_err();
+
+        // The immature UTXO should be invisible: zero spendable effective value.
+        assert!(
+            matches!(err, WalletError::InsufficientFunds { have: 0, .. }),
+            "expected InsufficientFunds {{ have: 0, .. }}, got {err:?}"
+        );
+    }
+
+    /// A coinbase UTXO with exactly COINBASE_MATURITY confirmations is mature
+    /// and must be available for selection.
+    #[test]
+    fn mature_coinbase_utxo_is_selected() {
+        let cs = MockChainState::new(1_000_000 * constants::COIN);
+        let dc = MockDecayCalculator;
+
+        // Mined at block 0; current height is 100 — exactly 100 confirmations.
+        let utxos = vec![make_coinbase_utxo(
+            1,
+            10 * constants::COIN,
+            Hash256::ZERO,
+            0,
+        )];
+        let current_height = constants::COINBASE_MATURITY; // == 100
+
+        let result =
+            CoinSelector::select(&utxos, 1 * constants::COIN, 0, 0, &dc, &cs, current_height)
+                .unwrap();
+
+        assert_eq!(result.selected.len(), 1);
+        assert!(result.selected[0].entry.is_coinbase);
     }
 }
