@@ -54,7 +54,7 @@ jobs:
       - name: Smoke-test binaries
         run: |
           ./target/x86_64-unknown-linux-gnu/release/rill-node --version
-          ./target/x86_64-unknown-linux-gnu/release/rill-miner --version
+          ./target/x86_64-unknown-linux-gnu/release/rill-miner --help > /dev/null
           ./target/x86_64-unknown-linux-gnu/release/rill-faucet --version
           ./target/x86_64-unknown-linux-gnu/release/rill-cli --version
 
