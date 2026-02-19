@@ -10,6 +10,7 @@ members = [
     "bins/rill-node",
     "bins/rill-cli",
     "bins/rill-miner",
+    "bins/rill-faucet",
     "crates/rill-tests",
 ]
 
@@ -60,6 +61,10 @@ mockall = "0.13"
 rand = "0.8"
 randomx-rs = "1"
 rpassword = "7"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
 [profile.release]
 lto = "fat"

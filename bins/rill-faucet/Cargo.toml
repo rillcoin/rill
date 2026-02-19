@@ -1,0 +1,33 @@
+[package]
+name = "rill-faucet"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rill-faucet"
+path = "src/main.rs"
+
+[dependencies]
+rill-wallet = { path = "../../crates/rill-wallet" }
+rill-core = { path = "../../crates/rill-core" }
+rill-decay = { path = "../../crates/rill-decay" }
+
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
+hex.workspace = true
+ed25519-dalek.workspace = true
+dirs.workspace = true
+chrono.workspace = true
+
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+reqwest.workspace = true
+jsonrpsee = { workspace = true, features = ["client-core", "http-client"] }

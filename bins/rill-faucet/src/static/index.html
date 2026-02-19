@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RillCoin Testnet Faucet</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange:  #FF8C00;
+      --orange-d:#CC7000;
+      --bg:      #0f1117;
+      --surface: #1a1d27;
+      --border:  #2a2d3e;
+      --text:    #e2e8f0;
+      --muted:   #8892a4;
+      --success: #22c55e;
+      --error:   #ef4444;
+      --radius:  10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      background: var(--orange);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.1rem; color: #000;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+    header h1 span { color: var(--orange); }
+    .badge {
+      margin-left: auto;
+      background: rgba(255,140,0,.15);
+      color: var(--orange);
+      border: 1px solid rgba(255,140,0,.3);
+      padding: 0.2rem 0.65rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── Main card ── */
+    main {
+      width: 100%;
+      max-width: 560px;
+      padding: 2rem 1rem;
+      flex: 1;
+    }
+
+    .info-bar {
+      background: rgba(255,140,0,.08);
+      border: 1px solid rgba(255,140,0,.2);
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      color: var(--orange);
+      text-align: center;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: "SFMono-Regular", "Consolas", monospace;
+      padding: 0.7rem 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: var(--orange); }
+    input[type="text"]::placeholder { color: #4a5568; }
+
+    button {
+      margin-top: 1rem;
+      width: 100%;
+      background: var(--orange);
+      color: #000;
+      font-weight: 700;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:hover:not(:disabled) { background: var(--orange-d); }
+    button:active:not(:disabled) { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Status ── */
+    #status { margin-top: 1rem; font-size: 0.9rem; display: none; }
+    #status.success {
+      background: rgba(34,197,94,.1);
+      border: 1px solid rgba(34,197,94,.3);
+      color: var(--success);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: block;
+    }
+    #status.error {
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      color: var(--error);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: block;
+    }
+    .txid {
+      font-family: monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+      margin-top: 0.35rem;
+      color: var(--text);
+      opacity: 0.7;
+    }
+
+    /* ── Recent claims ── */
+    #claims-list { list-style: none; }
+    #claims-list li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    #claims-list li:last-child { border-bottom: none; }
+    .claim-dot {
+      width: 7px; height: 7px;
+      background: var(--orange);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .claim-txid {
+      font-family: monospace;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .claim-time { color: var(--muted); flex-shrink: 0; }
+
+    /* ── Node status ── */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.45rem 0;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--muted); }
+    .stat-value { font-weight: 600; font-family: monospace; }
+    .stat-value.online { color: var(--success); }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    footer a { color: var(--orange); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">R</div>
+  <h1><span>Rill</span>Coin Testnet Faucet</h1>
+  <span class="badge">Testnet</span>
+</header>
+
+<main>
+  <div class="info-bar">
+    ⚡ <strong id="claim-amount">10 RILL</strong> per request &nbsp;·&nbsp;
+    🕐 <strong id="cooldown-label">24h</strong> cooldown &nbsp;·&nbsp;
+    📬 <code>trill1...</code> addresses only
+  </div>
+
+  <div class="card">
+    <h2>Claim RILL</h2>
+    <label for="address">Your testnet address</label>
+    <input
+      type="text"
+      id="address"
+      placeholder="trill1..."
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+    />
+    <button id="claim-btn" onclick="claim()">Claim RILL</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="card" id="recent-card" style="display:none">
+    <h2>Recent Claims (this session)</h2>
+    <ul id="claims-list"></ul>
+  </div>
+
+  <div class="card">
+    <h2>Node Status</h2>
+    <div class="stat-row">
+      <span class="stat-label">Network</span>
+      <span class="stat-value" id="stat-network">—</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Block height</span>
+      <span class="stat-value" id="stat-height">—</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Faucet balance</span>
+      <span class="stat-value" id="stat-balance">—</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Faucet status</span>
+      <span class="stat-value" id="stat-status">—</span>
+    </div>
+  </div>
+</main>
+
+<footer>
+  RillCoin — "Wealth should flow like water." &nbsp;|&nbsp;
+  <a href="https://github.com/rillcoin/rill" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script>
+  // ── Recent claims (session storage) ──────────────────────────────────────
+  const CLAIMS_KEY = 'rill_faucet_claims';
+  const MAX_CLAIMS = 5;
+
+  function loadClaims() {
+    try { return JSON.parse(sessionStorage.getItem(CLAIMS_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveClaim(txid, address) {
+    const claims = loadClaims();
+    claims.unshift({ txid, address, ts: Date.now() });
+    if (claims.length > MAX_CLAIMS) claims.pop();
+    sessionStorage.setItem(CLAIMS_KEY, JSON.stringify(claims));
+    renderClaims(claims);
+  }
+
+  function renderClaims(claims) {
+    const list = document.getElementById('claims-list');
+    const card = document.getElementById('recent-card');
+    if (!claims.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    list.innerHTML = '';
+    claims.forEach(c => {
+      const li = document.createElement('li');
+      const elapsed = Math.floor((Date.now() - c.ts) / 1000);
+      const timeStr = elapsed < 60 ? `${elapsed}s ago`
+                    : elapsed < 3600 ? `${Math.floor(elapsed/60)}m ago`
+                    : `${Math.floor(elapsed/3600)}h ago`;
+      li.innerHTML = `
+        <span class="claim-dot"></span>
+        <span class="claim-txid" title="${c.txid}">${c.txid.substring(0,20)}...${c.txid.slice(-8)}</span>
+        <span class="claim-time">${timeStr}</span>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  // ── Status display ────────────────────────────────────────────────────────
+  function showStatus(msg, type, txid) {
+    const el = document.getElementById('status');
+    el.className = type;
+    el.innerHTML = msg + (txid ? `<div class="txid">TxID: ${txid}</div>` : '');
+  }
+
+  // ── Claim ─────────────────────────────────────────────────────────────────
+  async function claim() {
+    const addrEl = document.getElementById('address');
+    const btn = document.getElementById('claim-btn');
+    const address = addrEl.value.trim();
+
+    if (!address) { showStatus('Please enter your testnet address.', 'error'); return; }
+    if (!address.startsWith('trill1')) {
+      showStatus('Address must start with <code>trill1</code> (testnet only).', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    showStatus('Submitting transaction…', 'success');
+
+    try {
+      const resp = await fetch('/api/faucet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        showStatus(`✅ Sent ${data.amount_rill} RILL to <code>${address}</code>`, 'success', data.txid);
+        saveClaim(data.txid, address);
+        addrEl.value = '';
+      } else {
+        showStatus(`❌ ${data.error || 'Unknown error'}`, 'error');
+      }
+    } catch (e) {
+      showStatus('❌ Network error — is the faucet running?', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Claim RILL';
+    }
+  }
+
+  // Enter key submits the form.
+  document.getElementById('address').addEventListener('keydown', e => {
+    if (e.key === 'Enter') claim();
+  });
+
+  // ── Node status polling ───────────────────────────────────────────────────
+  async function fetchStatus() {
+    try {
+      const resp = await fetch('/api/status');
+      if (!resp.ok) throw new Error(resp.status);
+      const d = await resp.json();
+
+      document.getElementById('stat-network').textContent = d.network || '—';
+      document.getElementById('stat-height').textContent =
+        d.height != null ? d.height.toLocaleString() : '—';
+      document.getElementById('stat-balance').textContent =
+        d.balance_rill != null ? `${d.balance_rill.toFixed(2)} RILL` : '—';
+
+      const statusEl = document.getElementById('stat-status');
+      const hasFunds = d.balance_rill > 0;
+      statusEl.textContent = hasFunds ? '● Online' : '⚠ Low funds';
+      statusEl.className = 'stat-value ' + (hasFunds ? 'online' : '');
+
+      // Update info bar with server-side values if available.
+      if (d.amount_per_claim_rill) {
+        document.getElementById('claim-amount').textContent = `${d.amount_per_claim_rill} RILL`;
+      }
+      if (d.cooldown_secs) {
+        const h = Math.round(d.cooldown_secs / 3600);
+        document.getElementById('cooldown-label').textContent = h >= 1 ? `${h}h` : `${d.cooldown_secs}s`;
+      }
+    } catch {
+      document.getElementById('stat-status').textContent = '● Offline';
+      document.getElementById('stat-status').className = 'stat-value';
+    }
+  }
+
+  // Initialise
+  renderClaims(loadClaims());
+  fetchStatus();
+  setInterval(fetchStatus, 15000);
+</script>
+</body>
+</html>

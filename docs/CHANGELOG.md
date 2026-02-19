@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### 2026-02-19 - rill-faucet: Testnet Faucet Binary
+
+**New binary: `bins/rill-faucet`**
+
+Built a standalone faucet binary for the live testnet. Community members can claim 10 RILL per address every 24 hours without mining.
+
+**Features:**
+- Axum HTTP server (web UI + REST API)
+- Embedded single-page web UI at `GET /` — dark theme, #FF8C00 brand colours, mobile-friendly, session-storage for recent claims
+- `POST /api/faucet {"address":"trill1..."}` — dispenses RILL, returns txid
+- `GET /api/status` — node height, faucet balance, network name
+- `POST /discord/interactions` — Discord slash command handler (`/faucet address:<trill1...>`)
+- Ed25519 Discord signature verification via `ed25519-dalek`
+- Discord slash command registration at startup via `reqwest` REST call
+- Per-address + per-IP rate limiting (`RateLimiter`, in-memory `HashMap<_, Instant>`)
+- Decay-aware coin selection (reuses `CoinSelector` from `rill-wallet`)
+- Wallet mutex held across RPC calls to prevent UTXO double-spend under concurrency
+- CORS enabled via `tower-http`
+
+**Configuration (env vars):**
+- `FAUCET_WALLET_PATH`, `FAUCET_WALLET_PASSWORD` (required), `FAUCET_RPC_ENDPOINT` (default: `http://127.0.0.1:28332`)
+- `FAUCET_BIND_ADDR` (default: `0.0.0.0:8080`), `FAUCET_AMOUNT_RILL` (default: 10), `FAUCET_COOLDOWN_SECS` (default: 86400)
+- `DISCORD_BOT_TOKEN`, `DISCORD_PUBLIC_KEY`, `DISCORD_APPLICATION_ID` (all optional)
+
+**Workspace changes:**
+- Added `axum = "0.7"`, `tower = "0.4"`, `tower-http = "0.5"` (cors), `reqwest = "0.12"` to workspace deps
+- Added `bins/rill-faucet` to workspace members
+
+**Verification:** `cargo build --workspace`, `cargo clippy -p rill-faucet -- -D warnings`, `cargo test --workspace` — all clean, 0 failures.
+
+---
+
 ### 2026-02-18 - Marketing: HyperLiquid Launch Planning & Discord Bot Strategy
 
 **HyperLiquid Launch Mechanics:**
