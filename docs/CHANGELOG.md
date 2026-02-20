@@ -34,7 +34,12 @@
 - Faucet deployed to node0 via `deploy-faucet.sh` — 3 new endpoints active on faucet.rillcoin.com
 - Smoke tested: `/api/wallet/new` and `/api/wallet/derive` confirmed working
 
-**Commits:** `5806303` (backend + frontend), `3f694e3` (CTA links), `d019cfd` (design polish)
+#### Infrastructure fixes
+- Fixed nginx `try_files` for static Next.js subroutes (`$uri/index.html` was missing)
+- Enabled HTTPS for `rillcoin.com` and `www.rillcoin.com` via certbot
+- Separated wallet send rate limiter (30s) from faucet claim rate limiter (24h) — faucet claim was blocking wallet sends from the same IP
+
+**Commits:** `5806303` (backend + frontend), `3f694e3` (CTA links), `d019cfd` (design polish), `88a8f0d` (nginx + HTTPS), `4e69642` (rate limiter fix)
 
 ### 2026-02-19 - ci: GitHub Actions CI/CD + Faucet Deploy Fix + Discord Roles
 
