@@ -217,8 +217,8 @@ async fn mining_worker(
                         // Throttle mining to prevent difficulty death spiral on
                         // low-peer-count testnets. Without this, the miner outpaces
                         // the LWMA difficulty window, causing runaway difficulty.
-                        info!("waiting 30s before next block to stabilize difficulty...");
-                        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                        info!("waiting 60s before next block to stabilize difficulty...");
+                        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                         current_block = None; // Fetch new template.
                     }
                     Err(e) => {
