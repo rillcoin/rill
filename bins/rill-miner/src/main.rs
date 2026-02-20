@@ -214,6 +214,11 @@ async fn mining_worker(
                     Ok(submitted_hash) => {
                         info!("block submitted successfully: {}", submitted_hash);
                         stats.increment_blocks();
+                        // Throttle mining to prevent difficulty death spiral on
+                        // low-peer-count testnets. Without this, the miner outpaces
+                        // the LWMA difficulty window, causing runaway difficulty.
+                        info!("waiting 30s before next block to stabilize difficulty...");
+                        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
                         current_block = None; // Fetch new template.
                     }
                     Err(e) => {
