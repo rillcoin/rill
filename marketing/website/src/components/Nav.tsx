@@ -68,7 +68,7 @@ export default function Nav() {
 
       {/* Right: CTA button */}
       <a
-        href="https://faucet.rillcoin.com"
+        href="/wallet"
         className="hidden md:inline-flex items-center font-sans font-medium text-[13px] rounded px-4 py-2 transition-opacity hover:opacity-90"
         style={{
           color: "var(--cyan-400)",
@@ -76,7 +76,7 @@ export default function Nav() {
           border: "1px solid rgba(34,211,238,0.271)",
         }}
       >
-        Get Testnet RILL
+        Try the Wallet
       </a>
 
       {/* Mobile: hamburger placeholder */}

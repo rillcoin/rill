@@ -48,7 +48,7 @@ export default function CtaSection() {
 
       {/* CTA button */}
       <a
-        href="https://faucet.rillcoin.com"
+        href="/wallet"
         className="relative inline-flex items-center font-sans font-semibold text-[16px] rounded py-4 px-10 transition-opacity hover:opacity-90"
         style={{
           color: "#0A0F1A",
@@ -56,7 +56,7 @@ export default function CtaSection() {
           boxShadow: "0 8px 40px rgba(249,115,22,0.314)",
         }}
       >
-        Get Testnet RILL&nbsp;&nbsp;&rarr;
+        Try the Wallet&nbsp;&nbsp;&rarr;
       </a>
 
       {/* Trust line */}
@@ -64,7 +64,7 @@ export default function CtaSection() {
         className="relative font-mono text-[12px] text-center"
         style={{ color: "#1A2535" }}
       >
-        faucet.rillcoin.com&nbsp;&nbsp;&middot;&nbsp;&nbsp;/faucet on Discord
+        rillcoin.com/wallet&nbsp;&nbsp;&middot;&nbsp;&nbsp;/faucet on Discord
       </p>
     </section>
   );

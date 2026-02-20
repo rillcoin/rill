@@ -174,7 +174,7 @@ function HeroContent() {
       {/* CTA Row */}
       <div className="flex flex-wrap items-center gap-4">
         <a
-          href="https://faucet.rillcoin.com"
+          href="/wallet"
           className="inline-flex items-center font-sans font-semibold text-[14px] rounded py-3.5 px-7 transition-opacity hover:opacity-90"
           style={{
             color: "#0A0F1A",
@@ -182,7 +182,7 @@ function HeroContent() {
             boxShadow: "0 8px 28px rgba(249,115,22,0.271)",
           }}
         >
-          Get Testnet RILL
+          Try the Wallet
         </a>
         <a
           href="https://docs.rillcoin.com"

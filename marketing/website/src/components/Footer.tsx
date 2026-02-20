@@ -16,7 +16,7 @@ const FOOTER_LINKS = [
       { label: "Discord", href: "https://discord.com/invite/F3dRVaP8" },
       { label: "X / Twitter", href: "https://x.com/RillCoin" },
       { label: "GitHub", href: "https://github.com/rillcoin/rill" },
-      { label: "Faucet", href: "https://faucet.rillcoin.com", accent: true },
+      { label: "Wallet", href: "/wallet", accent: true },
     ],
   },
   {
