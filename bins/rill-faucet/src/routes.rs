@@ -410,9 +410,9 @@ async fn api_wallet_send(
 ) -> impl IntoResponse {
     let ip = extract_ip(&headers);
 
-    // Rate limit by IP (1 send per 30 seconds).
+    // Rate limit by IP (1 send per 30 seconds) — separate from faucet cooldown.
     {
-        let limiter = state.rate_limiter.lock().await;
+        let limiter = state.wallet_rate_limiter.lock().await;
         let key = format!("wallet_send:{ip}");
         if let Err((msg, _)) = limiter.check(&key, ip) {
             return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
@@ -439,7 +439,7 @@ async fn api_wallet_send(
     match send_from_mnemonic(&req.mnemonic, &to, amount_rills, &state.config.rpc_endpoint).await {
         Ok((txid, fee)) => {
             info!(%txid, %to, amount_rill = req.amount_rill, "Wallet send succeeded");
-            let mut limiter = state.rate_limiter.lock().await;
+            let mut limiter = state.wallet_rate_limiter.lock().await;
             let key = format!("wallet_send:{ip}");
             limiter.record(&key, ip);
             (

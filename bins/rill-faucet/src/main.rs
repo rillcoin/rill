@@ -33,8 +33,10 @@ pub struct AppState {
     pub wallet_password: Vec<u8>,
     /// Faucet configuration.
     pub config: Arc<Config>,
-    /// Per-address and per-IP rate limiter.
+    /// Per-address and per-IP rate limiter (faucet claims — 24h cooldown).
     pub rate_limiter: Arc<Mutex<RateLimiter>>,
+    /// Separate rate limiter for wallet sends (30s cooldown).
+    pub wallet_rate_limiter: Arc<Mutex<RateLimiter>>,
 }
 
 #[tokio::main]
@@ -71,12 +73,14 @@ async fn main() -> Result<()> {
     info!("Faucet wallet loaded ({} address(es))", wallet.address_count());
 
     let rate_limiter = RateLimiter::new(Duration::from_secs(config.cooldown_secs));
+    let wallet_rate_limiter = RateLimiter::new(Duration::from_secs(30));
 
     let state = AppState {
         wallet: Arc::new(Mutex::new(wallet)),
         wallet_path: config.wallet_path.clone(),
         wallet_password: config.wallet_password.as_bytes().to_vec(),
         rate_limiter: Arc::new(Mutex::new(rate_limiter)),
+        wallet_rate_limiter: Arc::new(Mutex::new(wallet_rate_limiter)),
         config: Arc::new(config.clone()),
     };
 
