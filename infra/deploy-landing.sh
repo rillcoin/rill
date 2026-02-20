@@ -105,9 +105,17 @@ info "Files synced to ${REMOTE_WEB_ROOT}"
 # ---------------------------------------------------------------------------
 section "Configuring nginx"
 
-scp "${SSH_OPTS[@]}" \
-    "${REPO_ROOT}/infra/nginx-landing.conf" \
-    "${SSH}:/etc/nginx/sites-available/rill-landing"
+# Check if certbot has already configured SSL — if so, don't overwrite.
+HAS_CERTBOT=$(ssh_run grep -c "managed by Certbot" /etc/nginx/sites-available/rill-landing 2>/dev/null || echo 0)
+
+if [[ "${HAS_CERTBOT}" -gt 0 ]]; then
+    echo "✓ nginx config already has Certbot SSL — skipping overwrite"
+else
+    scp "${SSH_OPTS[@]}" \
+        "${REPO_ROOT}/infra/nginx-landing.conf" \
+        "${SSH}:/etc/nginx/sites-available/rill-landing"
+    echo "Installed base nginx config"
+fi
 
 ssh_run bash -s <<'REMOTE'
 set -euo pipefail
