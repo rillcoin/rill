@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Copy, ExternalLink, LogOut, Send, Droplets, Loader2, AlertTriangle, Check } from "lucide-react";
+import { Copy, ExternalLink, LogOut, Send, Droplets, Loader2, AlertTriangle, Check, Wallet, KeyRound } from "lucide-react";
 
 const FAUCET_API = "https://faucet.rillcoin.com";
 const EXPLORER_URL = "https://explorer.rillcoin.com";
@@ -211,288 +211,372 @@ export default function WalletPage() {
     a.length > 20 ? `${a.slice(0, 12)}...${a.slice(-8)}` : a;
 
   return (
-    <section
-      className="flex flex-col items-center gap-8 px-5 py-16 lg:px-20 min-h-[80vh]"
-      style={{ backgroundColor: "var(--void)" }}
-    >
-      {/* Warning banner */}
-      <div
-        className="flex items-center gap-3 rounded-lg px-5 py-3 w-full max-w-[560px]"
+    <>
+      {/* ---- Page hero ---- */}
+      <section
+        className="relative flex flex-col items-center gap-6 px-5 pt-20 pb-8 lg:px-20 lg:pt-28 lg:pb-12 overflow-hidden"
         style={{
-          backgroundColor: "rgba(249,115,22,0.06)",
-          border: "1px solid rgba(249,115,22,0.15)",
+          background:
+            "linear-gradient(180deg, #020408 0%, #040B16 50%, #020408 100%)",
         }}
       >
-        <AlertTriangle size={16} color="var(--orange-400)" className="flex-shrink-0" />
-        <p className="font-sans text-[12px] leading-[1.5]" style={{ color: "var(--orange-400)" }}>
-          Testnet wallet. Do not store real value. Your mnemonic is stored in this browser.
+        {/* Radial glow — matches Hero section */}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+          style={{
+            width: 900,
+            height: 500,
+            background:
+              "radial-gradient(ellipse at 50% 0%, #0C2040 0%, transparent 70%)",
+          }}
+        />
+
+        {/* Badge — same pattern as Hero */}
+        <div
+          className="relative inline-flex items-center gap-2 self-center rounded px-3 py-1"
+          style={{
+            backgroundColor: "rgba(34,211,238,0.055)",
+            border: "1px solid rgba(34,211,238,0.188)",
+          }}
+        >
+          <span
+            className="block rounded-full flex-shrink-0"
+            style={{ width: 5, height: 5, backgroundColor: "var(--cyan-400)" }}
+          />
+          <span
+            className="font-mono font-semibold text-[10px] tracking-[2.5px]"
+            style={{ color: "var(--cyan-400)" }}
+          >
+            TESTNET WALLET
+          </span>
+        </div>
+
+        {/* Heading — Instrument Serif, matching site hierarchy */}
+        <h1
+          className="relative font-serif text-center leading-none"
+          style={{
+            fontSize: "clamp(48px, 6vw, 80px)",
+            color: "var(--text-primary)",
+          }}
+        >
+          <span className="text-gradient-hero">
+            Send RILL.
+          </span>
+        </h1>
+
+        {/* Sub-heading */}
+        <p
+          className="relative font-sans text-[16px] lg:text-[18px] leading-[1.65] text-center max-w-md"
+          style={{ color: "var(--text-muted)" }}
+        >
+          Create a wallet, get testnet RILL from the faucet, and send payments — all in your browser.
         </p>
-      </div>
 
-      {/* Error/success messages */}
-      {error && (
+        {/* Divider — matches Hero/Stats section dividers */}
+        <div
+          className="relative w-full max-w-[640px] mt-4"
+          style={{
+            height: 1,
+            background:
+              "linear-gradient(90deg, transparent 0%, rgba(148,163,184,0.082) 50%, transparent 100%)",
+          }}
+        />
+      </section>
+
+      {/* ---- Wallet body ---- */}
+      <section
+        className="flex flex-col items-center gap-6 px-5 py-10 lg:px-20 lg:py-14"
+        style={{ backgroundColor: "var(--void)" }}
+      >
+        {/* Warning banner */}
         <div
           className="flex items-center gap-3 rounded-lg px-5 py-3 w-full max-w-[560px]"
-          style={{ backgroundColor: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}
+          style={{
+            backgroundColor: "rgba(249,115,22,0.06)",
+            border: "1px solid rgba(249,115,22,0.15)",
+          }}
         >
-          <p className="font-sans text-[13px]" style={{ color: "#EF4444" }}>{error}</p>
+          <AlertTriangle size={16} color="var(--orange-400)" className="flex-shrink-0" />
+          <p className="font-sans text-[12px] leading-[1.5]" style={{ color: "var(--orange-400)" }}>
+            Testnet only. Do not store real value. Mnemonic is saved in this browser.
+          </p>
         </div>
-      )}
-      {success && (
-        <div
-          className="flex items-center gap-3 rounded-lg px-5 py-3 w-full max-w-[560px]"
-          style={{ backgroundColor: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}
-        >
-          <Check size={14} color="#10B981" className="flex-shrink-0" />
-          <p className="font-sans text-[13px]" style={{ color: "#10B981" }}>{success}</p>
-        </div>
-      )}
 
-      {/* Loading overlay */}
-      {loading && (
-        <div className="flex items-center gap-2">
-          <Loader2 size={16} color="var(--cyan-400)" className="animate-spin" />
-          <span className="font-sans text-[13px]" style={{ color: "var(--text-secondary)" }}>{loading}</span>
-        </div>
-      )}
+        {/* Error/success messages */}
+        {error && (
+          <div
+            className="flex items-center gap-3 rounded-lg px-5 py-3 w-full max-w-[560px]"
+            style={{ backgroundColor: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}
+          >
+            <p className="font-sans text-[13px]" style={{ color: "#EF4444" }}>{error}</p>
+          </div>
+        )}
+        {success && (
+          <div
+            className="flex items-center gap-3 rounded-lg px-5 py-3 w-full max-w-[560px]"
+            style={{ backgroundColor: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)" }}
+          >
+            <Check size={14} color="#10B981" className="flex-shrink-0" />
+            <p className="font-sans text-[13px]" style={{ color: "#10B981" }}>{success}</p>
+          </div>
+        )}
 
-      {walletState === "none" ? (
-        /* ---- No wallet state ---- */
-        <div className="flex flex-col items-center gap-6 w-full max-w-[560px]">
-          <div className="flex flex-col items-center gap-2">
-            <h1 className="font-serif text-3xl lg:text-[36px] text-center" style={{ color: "var(--text-primary)" }}>
-              Web Wallet
-            </h1>
-            <p className="font-sans text-[14px] text-center" style={{ color: "var(--text-dim)" }}>
-              Create or restore a testnet wallet to send and receive RILL.
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center gap-2">
+            <Loader2 size={16} color="var(--cyan-400)" className="animate-spin" />
+            <span className="font-sans text-[13px]" style={{ color: "var(--text-secondary)" }}>{loading}</span>
+          </div>
+        )}
+
+        {walletState === "none" ? (
+          /* ---- Create / Restore ---- */
+          <div className="flex flex-col items-center gap-6 w-full max-w-[560px]">
+            <div className="flex flex-col sm:flex-row gap-4 w-full">
+              {/* Create button — primary CTA, orange gradient like Hero */}
+              <button
+                onClick={handleCreate}
+                disabled={!!loading}
+                className="flex-1 flex items-center justify-center gap-2.5 rounded-lg px-6 py-3.5 font-sans font-semibold text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  color: "#0A0F1A",
+                  background: "linear-gradient(135deg, #F97316 0%, #FB923C 100%)",
+                  boxShadow: "0 4px 20px rgba(249,115,22,0.2)",
+                }}
+              >
+                <Wallet size={16} />
+                Create New Wallet
+              </button>
+              {/* Restore — secondary, outline */}
+              <button
+                onClick={() => { setShowRestore(!showRestore); clearMessages(); }}
+                disabled={!!loading}
+                className="flex-1 flex items-center justify-center gap-2.5 rounded-lg px-6 py-3.5 font-sans font-medium text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  color: "var(--blue-500)",
+                  border: "1px solid rgba(59,130,246,0.22)",
+                }}
+              >
+                <KeyRound size={16} />
+                Restore from Mnemonic
+              </button>
+            </div>
+
+            {showRestore && (
+              <div
+                className="flex flex-col gap-4 rounded-xl p-6 w-full"
+                style={{ backgroundColor: "var(--raised)", border: "1px solid var(--border-subtle)" }}
+              >
+                <label className="font-mono text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
+                  RECOVERY PHRASE
+                </label>
+                <textarea
+                  value={restoreInput}
+                  onChange={e => setRestoreInput(e.target.value)}
+                  placeholder="Enter your 24 words separated by spaces..."
+                  rows={3}
+                  className="rounded-lg px-4 py-3 font-mono text-[13px] resize-none focus:outline-none placeholder:text-[var(--text-faint)]"
+                  style={{
+                    backgroundColor: "var(--base)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                <button
+                  onClick={handleRestore}
+                  disabled={!!loading || !restoreInput.trim()}
+                  className="rounded-lg px-6 py-3 font-sans font-medium text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    color: "var(--cyan-400)",
+                    backgroundColor: "rgba(34,211,238,0.071)",
+                    border: "1px solid rgba(34,211,238,0.271)",
+                  }}
+                >
+                  Restore Wallet
+                </button>
+              </div>
+            )}
+
+            {/* Trust line — matches Hero/CTA pattern */}
+            <p
+              className="font-mono text-[11px] text-center"
+              style={{ color: "#1E2A38" }}
+            >
+              Ed25519&nbsp;&nbsp;&middot;&nbsp;&nbsp;HD Derivation&nbsp;&nbsp;&middot;&nbsp;&nbsp;Client-side keys
             </p>
           </div>
+        ) : (
+          /* ---- Wallet loaded ---- */
+          <div className="flex flex-col gap-5 w-full max-w-[560px]">
 
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <button
-              onClick={handleCreate}
-              disabled={!!loading}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-sans font-medium text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{
-                color: "var(--cyan-400)",
-                backgroundColor: "rgba(34,211,238,0.071)",
-                border: "1px solid rgba(34,211,238,0.271)",
-              }}
-            >
-              Create New Wallet
-            </button>
-            <button
-              onClick={() => { setShowRestore(!showRestore); clearMessages(); }}
-              disabled={!!loading}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg px-6 py-3 font-sans font-medium text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{
-                color: "var(--text-secondary)",
-                backgroundColor: "var(--raised)",
-                border: "1px solid var(--border-subtle)",
-              }}
-            >
-              Restore from Mnemonic
-            </button>
-          </div>
-
-          {showRestore && (
+            {/* Balance card — featured, gradient bg like Bento decay card */}
             <div
-              className="flex flex-col gap-4 rounded-xl p-6 w-full"
-              style={{ backgroundColor: "var(--raised)", border: "1px solid var(--border-subtle)" }}
+              className="flex flex-col gap-5 rounded-xl p-6 lg:p-8"
+              style={{
+                background: "radial-gradient(ellipse at 90% 10%, #0C2448 0%, #060C18 60%)",
+                border: "1px solid var(--border-blue)",
+              }}
             >
-              <label className="font-sans text-[13px] font-medium" style={{ color: "var(--text-secondary)" }}>
-                Enter your 24-word mnemonic phrase
-              </label>
-              <textarea
-                value={restoreInput}
-                onChange={e => setRestoreInput(e.target.value)}
-                placeholder="abandon ability able about above absent absorb abstract absurd abuse access accident..."
-                rows={3}
-                className="rounded-lg px-4 py-3 font-mono text-[13px] resize-none focus:outline-none"
-                style={{
-                  backgroundColor: "var(--base)",
-                  border: "1px solid var(--border-subtle)",
-                  color: "var(--text-primary)",
-                }}
-              />
+              {/* Balance — large, gradient text like Stats section */}
+              <div className="flex flex-col gap-1">
+                <span className="font-mono font-medium text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
+                  BALANCE
+                </span>
+                <div className="flex items-baseline gap-3">
+                  <span
+                    className="font-mono font-bold text-gradient-blue-cyan leading-none"
+                    style={{ fontSize: "clamp(36px, 4vw, 56px)" }}
+                  >
+                    {balance ? balance.balance_rill.toFixed(2) : "—"}
+                  </span>
+                  <span className="font-mono font-medium text-[14px]" style={{ color: "var(--text-dim)" }}>RILL</span>
+                </div>
+                {balance && (
+                  <span className="font-mono text-[11px] mt-1" style={{ color: "var(--text-dim)" }}>
+                    {balance.utxo_count} UTXO{balance.utxo_count !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, backgroundColor: "rgba(59,130,246,0.094)" }} />
+
+              {/* Address */}
+              <div className="flex flex-col gap-1.5">
+                <span className="font-mono font-medium text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
+                  YOUR ADDRESS
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[13px] break-all" style={{ color: "var(--text-secondary)" }}>
+                    <span className="hidden sm:inline">{address}</span>
+                    <span className="sm:hidden">{truncateAddress(address)}</span>
+                  </span>
+                  <button onClick={copyAddress} className="flex-shrink-0 p-1 transition-opacity hover:opacity-70">
+                    {copied
+                      ? <Check size={14} color="#10B981" />
+                      : <Copy size={14} color="var(--text-dim)" />
+                    }
+                  </button>
+                </div>
+              </div>
+
+              {/* Faucet button — cyan outline, consistent with site CTAs */}
               <button
-                onClick={handleRestore}
-                disabled={!!loading || !restoreInput.trim()}
-                className="rounded-lg px-6 py-3 font-sans font-medium text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
+                onClick={handleFaucet}
+                disabled={!!loading}
+                className="flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-sans font-medium text-[13px] transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{
                   color: "var(--cyan-400)",
                   backgroundColor: "rgba(34,211,238,0.071)",
                   border: "1px solid rgba(34,211,238,0.271)",
                 }}
               >
-                Restore Wallet
+                <Droplets size={14} />
+                Request from Faucet
               </button>
             </div>
-          )}
-        </div>
-      ) : (
-        /* ---- Wallet loaded state ---- */
-        <div className="flex flex-col gap-6 w-full max-w-[560px]">
 
-          {/* Wallet card */}
-          <div
-            className="flex flex-col gap-5 rounded-xl p-6 lg:p-8"
-            style={{
-              background: "radial-gradient(ellipse at 90% 10%, #0C2448 0%, #060C18 60%)",
-              border: "1px solid var(--border-blue)",
-            }}
-          >
-            {/* Address */}
-            <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
-                YOUR ADDRESS
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[14px] break-all" style={{ color: "var(--text-primary)" }}>
-                  <span className="hidden sm:inline">{address}</span>
-                  <span className="sm:hidden">{truncateAddress(address)}</span>
-                </span>
-                <button onClick={copyAddress} className="flex-shrink-0 p-1 transition-opacity hover:opacity-70">
-                  {copied
-                    ? <Check size={14} color="#10B981" />
-                    : <Copy size={14} color="var(--text-dim)" />
-                  }
-                </button>
-              </div>
-            </div>
-
-            {/* Balance */}
-            <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
-                BALANCE
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="font-mono font-bold text-[32px] text-gradient-blue-cyan">
-                  {balance ? balance.balance_rill.toFixed(2) : "—"}
-                </span>
-                <span className="font-mono text-[14px]" style={{ color: "var(--text-dim)" }}>RILL</span>
-              </div>
-              {balance && (
-                <span className="font-mono text-[11px]" style={{ color: "var(--text-dim)" }}>
-                  {balance.utxo_count} UTXO{balance.utxo_count !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-
-            {/* Faucet button */}
-            <button
-              onClick={handleFaucet}
-              disabled={!!loading}
-              className="flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-sans font-medium text-[13px] transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{
-                color: "var(--cyan-400)",
-                backgroundColor: "rgba(34,211,238,0.071)",
-                border: "1px solid rgba(34,211,238,0.271)",
-              }}
-            >
-              <Droplets size={14} />
-              Request from Faucet
-            </button>
-          </div>
-
-          {/* Send form */}
-          <div
-            className="flex flex-col gap-4 rounded-xl p-6 lg:p-8"
-            style={{ backgroundColor: "var(--raised)", border: "1px solid var(--border-subtle)" }}
-          >
-            <span className="font-mono text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
-              SEND RILL
-            </span>
-
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={sendTo}
-                onChange={e => setSendTo(e.target.value)}
-                placeholder="Recipient address (trill1...)"
-                className="rounded-lg px-4 py-3 font-mono text-[13px] focus:outline-none"
-                style={{
-                  backgroundColor: "var(--base)",
-                  border: "1px solid var(--border-subtle)",
-                  color: "var(--text-primary)",
-                }}
-              />
-              <input
-                type="text"
-                inputMode="decimal"
-                value={sendAmount}
-                onChange={e => setSendAmount(e.target.value)}
-                placeholder="Amount (RILL)"
-                className="rounded-lg px-4 py-3 font-mono text-[13px] focus:outline-none"
-                style={{
-                  backgroundColor: "var(--base)",
-                  border: "1px solid var(--border-subtle)",
-                  color: "var(--text-primary)",
-                }}
-              />
-            </div>
-
-            <button
-              onClick={handleSend}
-              disabled={!!loading || !sendTo || !sendAmount}
-              className="flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-sans font-medium text-[13px] transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{
-                color: "#F1F5F9",
-                backgroundColor: "var(--blue-500)",
-              }}
-            >
-              <Send size={14} />
-              Send
-            </button>
-          </div>
-
-          {/* Last transaction */}
-          {lastTx && (
+            {/* Send card — raised surface like Bento PoW card */}
             <div
-              className="flex flex-col gap-2 rounded-xl p-5"
+              className="flex flex-col gap-4 rounded-xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--raised)", border: "1px solid var(--border-subtle)" }}
             >
-              <span className="font-mono text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
-                LAST TRANSACTION
+              <span className="font-mono font-medium text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
+                SEND RILL
               </span>
-              <a
-                href={`${EXPLORER_URL}/tx/${lastTx.txid}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 font-mono text-[12px] break-all transition-opacity hover:opacity-70"
-                style={{ color: "var(--cyan-400)" }}
-              >
-                {lastTx.txid}
-                <ExternalLink size={12} className="flex-shrink-0" />
-              </a>
-              <div className="flex gap-4">
-                <span className="font-mono text-[12px]" style={{ color: "var(--text-dim)" }}>
-                  {lastTx.amount_rill} RILL
-                </span>
-                {lastTx.fee_rill !== undefined && (
-                  <span className="font-mono text-[12px]" style={{ color: "var(--text-dim)" }}>
-                    fee: {lastTx.fee_rill} RILL
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
 
-          {/* Mnemonic reveal + logout */}
-          <div className="flex flex-col gap-4">
-            <MnemonicReveal mnemonic={mnemonic} />
-            <button
-              onClick={handleLogout}
-              className="flex items-center justify-center gap-2 rounded-lg px-5 py-2 font-sans text-[13px] transition-opacity hover:opacity-70"
-              style={{ color: "var(--text-dim)" }}
-            >
-              <LogOut size={14} />
-              Disconnect Wallet
-            </button>
+              <div className="flex flex-col gap-3">
+                <input
+                  type="text"
+                  value={sendTo}
+                  onChange={e => setSendTo(e.target.value)}
+                  placeholder="Recipient address (trill1...)"
+                  className="rounded-lg px-4 py-3 font-mono text-[13px] focus:outline-none placeholder:text-[var(--text-faint)]"
+                  style={{
+                    backgroundColor: "var(--base)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={sendAmount}
+                  onChange={e => setSendAmount(e.target.value)}
+                  placeholder="Amount (RILL)"
+                  className="rounded-lg px-4 py-3 font-mono text-[13px] focus:outline-none placeholder:text-[var(--text-faint)]"
+                  style={{
+                    backgroundColor: "var(--base)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-primary)",
+                  }}
+                />
+              </div>
+
+              {/* Send button — solid blue, primary action */}
+              <button
+                onClick={handleSend}
+                disabled={!!loading || !sendTo || !sendAmount}
+                className="flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-sans font-semibold text-[14px] transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  color: "#F1F5F9",
+                  backgroundColor: "var(--blue-500)",
+                  boxShadow: "0 4px 16px rgba(59,130,246,0.2)",
+                }}
+              >
+                <Send size={14} />
+                Send
+              </button>
+            </div>
+
+            {/* Last transaction */}
+            {lastTx && (
+              <div
+                className="flex flex-col gap-2 rounded-xl p-5"
+                style={{ backgroundColor: "var(--raised)", border: "1px solid var(--border-subtle)" }}
+              >
+                <span className="font-mono font-medium text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
+                  LAST TRANSACTION
+                </span>
+                <a
+                  href={`${EXPLORER_URL}/tx/${lastTx.txid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 font-mono text-[12px] break-all transition-opacity hover:opacity-70"
+                  style={{ color: "var(--cyan-400)" }}
+                >
+                  {lastTx.txid}
+                  <ExternalLink size={12} className="flex-shrink-0" />
+                </a>
+                <div className="flex gap-4">
+                  <span className="font-mono text-[12px]" style={{ color: "var(--text-dim)" }}>
+                    {lastTx.amount_rill} RILL
+                  </span>
+                  {lastTx.fee_rill !== undefined && (
+                    <span className="font-mono text-[12px]" style={{ color: "var(--text-dim)" }}>
+                      fee: {lastTx.fee_rill} RILL
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Mnemonic + disconnect */}
+            <div className="flex flex-col gap-4">
+              <MnemonicReveal mnemonic={mnemonic} />
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 font-sans text-[13px] transition-opacity hover:opacity-70"
+                style={{ color: "var(--text-dim)" }}
+              >
+                <LogOut size={14} />
+                Disconnect Wallet
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </section>
+    </>
   );
 }
 
@@ -512,32 +596,32 @@ function MnemonicReveal({ mnemonic }: { mnemonic: string }) {
       style={{ backgroundColor: "var(--raised)", border: "1px solid var(--border-subtle)" }}
     >
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
+        <span className="font-mono font-medium text-[10px] tracking-[2px]" style={{ color: "var(--text-faint)" }}>
           RECOVERY PHRASE
         </span>
         <button
           onClick={() => setVisible(!visible)}
-          className="font-sans text-[12px] transition-opacity hover:opacity-70"
+          className="font-mono text-[11px] tracking-[1px] transition-opacity hover:opacity-70"
           style={{ color: "var(--text-dim)" }}
         >
-          {visible ? "Hide" : "Reveal"}
+          {visible ? "HIDE" : "REVEAL"}
         </button>
       </div>
       {visible && (
         <>
           <div
-            className="grid grid-cols-3 gap-2 rounded-lg p-4"
+            className="grid grid-cols-3 sm:grid-cols-4 gap-x-4 gap-y-2 rounded-lg p-4"
             style={{ backgroundColor: "var(--base)" }}
           >
             {mnemonic.split(" ").map((word, i) => (
               <span key={i} className="font-mono text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                <span style={{ color: "var(--text-dim)" }}>{i + 1}.</span> {word}
+                <span style={{ color: "var(--text-faint)" }}>{i + 1}.</span> {word}
               </span>
             ))}
           </div>
           <button
             onClick={handleCopy}
-            className="flex items-center gap-2 font-sans text-[12px] transition-opacity hover:opacity-70"
+            className="flex items-center gap-2 font-mono text-[11px] tracking-[0.5px] transition-opacity hover:opacity-70"
             style={{ color: "var(--text-dim)" }}
           >
             {copied ? <Check size={12} color="#10B981" /> : <Copy size={12} />}
