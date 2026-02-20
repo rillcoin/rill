@@ -26,6 +26,7 @@ const FOOTER_LINKS = [
       { label: "RPC Docs", href: "https://docs.rillcoin.com/rpc" },
       { label: "Node Setup", href: "https://docs.rillcoin.com/node" },
       { label: "CLI Reference", href: "https://docs.rillcoin.com/cli" },
+      { label: "MCP Server", href: "https://github.com/rillcoin/rill/tree/main/tools/rill-mcp", accent: true },
     ],
   },
 ] as const;

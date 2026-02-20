@@ -4,6 +4,7 @@ import BentoSection from "@/components/BentoSection";
 import StatsSection from "@/components/StatsSection";
 import DecayRingSection from "@/components/DecayRingSection";
 import CliSection from "@/components/CliSection";
+import McpSection from "@/components/McpSection";
 import CtaSection from "@/components/CtaSection";
 import Footer from "@/components/Footer";
 
@@ -16,6 +17,7 @@ export default function Home() {
       <StatsSection />
       <DecayRingSection />
       <CliSection />
+      <McpSection />
       <CtaSection />
       <Footer />
     </main>
