@@ -4,12 +4,14 @@ Cross-agent blockers and unresolved issues. Updated at session end.
 
 ## Active Blockers
 
-### Faucet wallet unfunded (discovered 2026-02-19)
-**Severity:** Medium — faucet cannot dispense RILL until funded
-**Description:** Faucet wallet (`trill1qnad7...`) has zero balance. Miner wallet needs coinbase UTXOs to mature (100 blocks) before funds can be sent to faucet.
-**Resolution needed:** Auto-fund script (`/root/fund_faucet.sh`) running on node0 — will send 5,000 RILL once height ≥ 101. Currently at height 73.
+_None._
 
 ## Resolved
+
+### Faucet wallet unfunded (discovered 2026-02-19, resolved 2026-02-19)
+**Severity:** Medium — faucet cannot dispense RILL until funded
+**Description:** Faucet wallet (`trill1qnad7...`) had zero balance. Miner wallet needed coinbase UTXOs to mature (100 blocks).
+**Resolution:** Auto-fund script (`/root/fund_faucet.sh`) funded faucet with 5,000 RILL once height ≥ 101.
 
 ### Discord bot missing Manage Roles permission (discovered 2026-02-19, resolved 2026-02-19)
 **Severity:** Low — cosmetic/community only, no protocol impact

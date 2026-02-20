@@ -2,6 +2,40 @@
 
 ## [Unreleased]
 
+### 2026-02-20 - Web Wallet for Testnet
+
+**Browser-based wallet at rillcoin.com/wallet — create wallets, claim faucet, send payments without installing anything.**
+
+#### Backend (rill-faucet)
+- `GET /api/wallet/balance?address=trill1...` — address balance + UTXO count lookup
+- `POST /api/wallet/send` — send RILL from mnemonic-derived ephemeral wallet with rate limiting
+- `POST /api/wallet/derive` — derive address from mnemonic (restore flow)
+- `send_from_mnemonic()` — ephemeral keychain with gap-based address scanning, decay-aware coin selection
+- Extracted `parse_utxo_json()` shared helper to reduce duplication in `send.rs`
+- `fetch_balance_for_address()` — single-address balance + UTXO count query
+
+#### Frontend (rillcoin.com/wallet)
+- New `/wallet` page with hero section (radial glow, badge, gradient heading) matching site design
+- Create wallet / Restore from mnemonic flow with localStorage persistence
+- Balance card with 15s auto-refresh, gradient text, and faucet request button
+- Send form with address validation, amount input, and transaction result display
+- Mnemonic reveal/hide with numbered grid and copy functionality
+- Disconnect button to clear wallet from browser
+- Testnet warning banner (orange, prominent)
+- Mobile-responsive, matching existing design system (Instrument Serif, Inter, JetBrains Mono)
+
+#### Site-wide link updates
+- All CTAs (Hero, Nav, CtaSection, Footer) now point to `/wallet` instead of `faucet.rillcoin.com`
+- "Wallet" link added to Nav center links
+- Button copy updated: "Get Testnet RILL" → "Try the Wallet"
+
+#### Deployed
+- Website deployed to node0 via `deploy-landing.sh` — `/wallet` route live on rillcoin.com
+- Faucet deployed to node0 via `deploy-faucet.sh` — 3 new endpoints active on faucet.rillcoin.com
+- Smoke tested: `/api/wallet/new` and `/api/wallet/derive` confirmed working
+
+**Commits:** `5806303` (backend + frontend), `3f694e3` (CTA links), `d019cfd` (design polish)
+
 ### 2026-02-19 - ci: GitHub Actions CI/CD + Faucet Deploy Fix + Discord Roles
 
 **Automated build pipeline, fixed faucet crash, created community roles.**
