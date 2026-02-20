@@ -8,6 +8,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use axum::extract::Query;
 use serde::Deserialize;
 use serde_json::json;
 use tower_http::cors::{Any, CorsLayer};
@@ -18,7 +19,7 @@ use rill_core::constants::COIN;
 use rill_wallet::{seed_to_mnemonic, KeyChain, Seed};
 
 use crate::discord;
-use crate::send::{fetch_balance, rpc_client, send_rill};
+use crate::send::{fetch_balance, fetch_balance_for_address, rpc_client, send_from_mnemonic, send_rill};
 use crate::AppState;
 
 // Embed the web UI at compile time.
@@ -41,6 +42,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/faucet", post(api_faucet))
         .route("/api/status", get(api_status))
         .route("/api/wallet/new", get(api_create_wallet))
+        .route("/api/wallet/balance", get(api_wallet_balance))
+        .route("/api/wallet/send", post(api_wallet_send))
+        .route("/api/wallet/derive", post(api_wallet_derive))
         .route("/discord/interactions", post(discord_interactions))
         .with_state(state)
         .layer(cors)
@@ -338,6 +342,144 @@ async fn discord_interactions(
         }
     } else {
         (StatusCode::BAD_REQUEST, Json(json!({"error": "Unsupported interaction type"})))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Web Wallet API
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct BalanceQuery {
+    address: String,
+}
+
+/// `GET /api/wallet/balance?address=trill1...` — look up balance for any address.
+async fn api_wallet_balance(
+    State(state): State<AppState>,
+    Query(query): Query<BalanceQuery>,
+) -> impl IntoResponse {
+    let address = query.address.trim().to_string();
+
+    if !address.starts_with("trill1") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "Only testnet addresses (trill1...) are supported"})),
+        );
+    }
+
+    let client = match rpc_client(&state.config.rpc_endpoint) {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "Node unavailable"})),
+            );
+        }
+    };
+
+    match fetch_balance_for_address(&client, &address).await {
+        Ok((balance_rills, utxo_count)) => (
+            StatusCode::OK,
+            Json(json!({
+                "address": address,
+                "balance_rill": balance_rills as f64 / COIN as f64,
+                "balance_rills": balance_rills,
+                "utxo_count": utxo_count,
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"error": format!("Failed to fetch balance: {e}")})),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+struct WalletSendRequest {
+    mnemonic: String,
+    to: String,
+    amount_rill: f64,
+}
+
+/// `POST /api/wallet/send` — send RILL from a mnemonic-derived wallet.
+async fn api_wallet_send(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<WalletSendRequest>,
+) -> impl IntoResponse {
+    let ip = extract_ip(&headers);
+
+    // Rate limit by IP (1 send per 30 seconds).
+    {
+        let limiter = state.rate_limiter.lock().await;
+        let key = format!("wallet_send:{ip}");
+        if let Err((msg, _)) = limiter.check(&key, ip) {
+            return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
+        }
+    }
+
+    let to = req.to.trim().to_string();
+    if !to.starts_with("trill1") {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "Only testnet addresses (trill1...) are supported"})),
+        );
+    }
+
+    if req.amount_rill <= 0.0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "Amount must be greater than zero"})),
+        );
+    }
+
+    let amount_rills = (req.amount_rill * COIN as f64) as u64;
+
+    match send_from_mnemonic(&req.mnemonic, &to, amount_rills, &state.config.rpc_endpoint).await {
+        Ok((txid, fee)) => {
+            info!(%txid, %to, amount_rill = req.amount_rill, "Wallet send succeeded");
+            let mut limiter = state.rate_limiter.lock().await;
+            let key = format!("wallet_send:{ip}");
+            limiter.record(&key, ip);
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "txid": txid,
+                    "amount_rill": req.amount_rill,
+                    "fee_rill": fee as f64 / COIN as f64,
+                })),
+            )
+        }
+        Err(e) => {
+            warn!(error = %e, "Wallet send failed");
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": e.to_string()})),
+            )
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct DeriveRequest {
+    mnemonic: String,
+}
+
+/// `POST /api/wallet/derive` — derive address from mnemonic (for restore flow).
+async fn api_wallet_derive(Json(req): Json<DeriveRequest>) -> impl IntoResponse {
+    let mnemonic = req.mnemonic.trim();
+
+    match rill_wallet::mnemonic_to_seed(mnemonic) {
+        Ok(seed) => {
+            let mut keychain = KeyChain::new(seed, Network::Testnet);
+            let address = keychain.address_at(0).encode();
+            (StatusCode::OK, Json(json!({"address": address})))
+        }
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": format!("Invalid mnemonic: {e}")})),
+        ),
     }
 }
 

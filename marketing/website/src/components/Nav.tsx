@@ -57,6 +57,13 @@ export default function Nav() {
         >
           Testnet
         </Link>
+        <Link
+          href="/wallet"
+          className="font-sans text-[13px] font-medium transition-colors hover:opacity-80"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          Wallet
+        </Link>
       </div>
 
       {/* Right: CTA button */}
