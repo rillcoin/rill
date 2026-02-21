@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ./infra/deploy-landing.sh                    # auto-detect node0 IP via doctl
-#   ./infra/deploy-landing.sh 206.189.202.181    # explicit IP
+#   ./infra/deploy-landing.sh <server-ip>         # explicit IP
 #
 # What this does:
 #   1. Builds the Next.js static site (output: export → out/)

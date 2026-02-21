@@ -16,3 +16,5 @@ __pycache__/
 *.pyc
 .venv/
 .claude/memory/credentials.md
+.claude/memory/MEMORY.md
+matt_wallets

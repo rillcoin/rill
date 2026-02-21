@@ -224,9 +224,9 @@
 
 ### 2026-02-19 - infra: Faucet Deployed to Testnet node0
 
-**Faucet live at `http://206.189.202.181` (DNS `faucet.rillcoin.org` pending propagation)**
+**Faucet live at `http://node0` (DNS `faucet.rillcoin.org` pending propagation)**
 
-- Built `rill-faucet` release binary on node0 (`206.189.202.181`)
+- Built `rill-faucet` release binary on node0 (`node0`)
 - Installed systemd unit (`rill-faucet.service`) — running as `rill` user with hardening
 - nginx reverse proxy configured (port 80 → 127.0.0.1:8080)
 - DigitalOcean cloud firewall opened for TCP 80 + 443
@@ -321,7 +321,7 @@ Built a standalone faucet binary for the live testnet. Community members can cla
 
 **Testnet Infrastructure:**
 - Created `infra/do-testnet.sh` — DigitalOcean provisioner for 2-node testnet (nyc1, $24/mo)
-- Deployed rill-node0 (seed/miner) at 206.189.202.181 and rill-node1 (wallet) at 159.223.140.65
+- Deployed rill-node0 (seed/miner) at node0 and rill-node1 (wallet) at node1
 - VPC 10.20.0.0/24 with firewall restricting P2P to internal, SSH from anywhere
 - Cloud-init builds from source via GitHub deploy key (private repo)
 - Nodes peered over libp2p (Kademlia + Gossipsub) with multiaddr bootstrap
@@ -365,7 +365,7 @@ Built a standalone faucet binary for the live testnet. Community members can cla
 - Removed Carl-bot autorole for Member (onboarding handles it now)
 - Added @everyone send override on #general for onboarding chattable requirement
 - Cleaned up #roles-and-verification: removed broken verify embed, kept notification ping panel
-- Deleted Discord messages exposing personal name ("Matt du Jardin achievements")
+- Deleted Discord messages exposing personal information
 - Recreated #welcome as text channel (was incorrectly Forum type)
 
 ### 2026-02-17 - Privacy & Git Hygiene

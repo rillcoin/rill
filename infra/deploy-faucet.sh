@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ./infra/deploy-faucet.sh               # auto-detect node0 IP via doctl
-#   ./infra/deploy-faucet.sh 206.189.202.181   # explicit IP
+#   ./infra/deploy-faucet.sh <server-ip>        # explicit IP
 #
 # What this does (idempotent — safe to re-run for updates):
 #   1. Resolves node0 public IP (via doctl or arg)
