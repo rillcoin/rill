@@ -24,6 +24,8 @@
 - New `McpSection` component on rillcoin.com homepage (between CLI and CTA sections)
 - Shows Claude Desktop config snippet, 10-tool grid, 4 agent cards, "Works with" badges
 - MCP Server link added to footer DEVELOPERS column
+- Mobile responsiveness: tools grid stacks to 1-col, badges wrap, config filename truncates
+- Implemented working mobile hamburger menu (was a non-functional placeholder) — animates to X, dropdown with all nav links, closes on tap
 - Deployed to node0
 
 #### Infrastructure
