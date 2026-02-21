@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-02-21 - MCP Server & AI Agents
+
+**AI assistants can now interact with RillCoin directly via the Model Context Protocol.**
+
+#### MCP Server (`tools/rill-mcp/`)
+- TypeScript MCP server using `@modelcontextprotocol/sdk` with stdio transport
+- 10 tools: `create_wallet`, `derive_address`, `check_balance`, `send_rill`, `claim_faucet`, `get_network_status`, `get_block`, `get_transaction`, `search`, `explain_decay`
+- HTTP clients wrapping `faucet.rillcoin.com` and `explorer.rillcoin.com` APIs
+- BigInt sigmoid decay calculator ported from `rill-decay` engine, cross-validated against Rust test vectors
+- 49 tests (formatting, decay math cross-validation, tool handlers with mocked clients)
+- Works with Claude Desktop, Cursor, Claude Code, and any MCP-compatible client
+
+#### AI Agent Prompts (`tools/rill-mcp/agents/`)
+- **Decay Advisor** — decay mechanics education, impact calculation, holding strategies
+- **Wallet Assistant** — wallet lifecycle guidance with security best practices
+- **Mining Helper** — setup guides, reward monitoring, troubleshooting
+- **Explorer Agent** — natural language blockchain exploration
+
+#### Website
+- New `McpSection` component on rillcoin.com homepage (between CLI and CTA sections)
+- Shows Claude Desktop config snippet, 10-tool grid, 4 agent cards, "Works with" badges
+- MCP Server link added to footer DEVELOPERS column
+- Deployed to node0
+
+#### Infrastructure
+- Fixed `deploy-landing.sh` certbot detection bug — `grep -c` over SSH was returning filename-prefixed output, causing the integer comparison to fail and overwrite the SSL config
+- Re-ran certbot to restore HTTPS after accidental overwrite
+
 ### 2026-02-20 - Web Wallet for Testnet
 
 **Browser-based wallet at rillcoin.com/wallet — create wallets, claim faucet, send payments without installing anything.**
