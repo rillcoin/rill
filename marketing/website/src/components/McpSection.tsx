@@ -109,7 +109,7 @@ export default function McpSection() {
               />
             </div>
             <span
-              className="font-mono text-[12px]"
+              className="font-mono text-[11px] sm:text-[12px] truncate"
               style={{ color: "rgba(148,163,184,0.376)" }}
             >
               claude_desktop_config.json
@@ -179,7 +179,7 @@ export default function McpSection() {
           >
             10 MCP TOOLS
           </span>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {TOOLS.map((tool) => (
               <div
                 key={tool.name}
@@ -273,7 +273,7 @@ export default function McpSection() {
         >
           WORKS WITH
         </span>
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap justify-center items-center gap-3">
           {["Claude Desktop", "Cursor", "Claude Code", "Any MCP Client"].map(
             (name) => (
               <span
