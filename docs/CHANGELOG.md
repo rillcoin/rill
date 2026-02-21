@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-02-21 - Public Release & Security Hardening
+
+**Repository is now public at https://github.com/rillcoin/rill**
+
+#### Public Release Prep
+- Security audit: scanned all tracked files and full git history for leaked secrets — none found
+- Added `matt_wallets` and `.claude/memory/MEMORY.md` to `.gitignore`
+- Removed `MEMORY.md` from git tracking (contained infrastructure details)
+- Scrubbed server IPs from changelog and deploy scripts
+- Scrubbed personal name references from changelog
+- Added `LICENSE-MIT` and `LICENSE-APACHE` (dual license, Rust ecosystem standard)
+- Added `CONTRIBUTING.md` with branch naming, code standards, and PR process
+- Added `SECURITY.md` with responsible disclosure policy and Bug Hunter recognition
+- Made repository public via `gh repo edit --visibility public`
+- Rotated GitHub CLI token post-publish
+
+#### Community Announcements
+- Discord #announcements: MCP server + repo public announcement (posted and pinned)
+- X/Twitter thread drafted (7 tweets): MCP tools, decay calculator, agent prompts, repo public, CTA
+
 ### 2026-02-21 - MCP Server & AI Agents
 
 **AI assistants can now interact with RillCoin directly via the Model Context Protocol.**
