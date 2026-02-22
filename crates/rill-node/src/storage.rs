@@ -13,6 +13,8 @@ use rocksdb::{ColumnFamilyDescriptor, Options, SliceTransform, WriteBatch, DB};
 
 use rill_core::agent::AgentWalletState;
 use rill_core::chain_state::{ChainStore, ConnectBlockResult, DisconnectBlockResult};
+use rill_core::conduct::{self, VelocityBaseline};
+use rill_core::constants::CONDUCT_PERIOD_BLOCKS;
 use rill_core::error::{ChainStateError, RillError};
 use rill_core::genesis;
 use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, UtxoEntry};
@@ -450,6 +452,95 @@ impl RocksStore {
             .map_err(|e| RillError::Storage(e.to_string()))
     }
 
+    /// Process conduct score updates at epoch boundaries.
+    ///
+    /// Called during `connect_block` when `height` is a non-zero multiple of
+    /// [`CONDUCT_PERIOD_BLOCKS`]. Iterates all registered agent wallets,
+    /// updates each wallet's velocity baseline with the epoch's outbound
+    /// volume, recomputes the conduct score via exponential smoothing, and
+    /// derives the updated decay multiplier.
+    ///
+    /// All updates are written into `batch` for atomic commit alongside the
+    /// rest of the block.
+    fn process_conduct_epoch(
+        &self,
+        batch: &mut WriteBatch,
+        height: u64,
+        agent_epoch_volumes: &HashMap<Hash256, u64>,
+    ) -> Result<(), RillError> {
+        let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+
+        // Collect all agent wallet states first to avoid holding the iterator
+        // while we also need to call self methods.
+        let mut agents: Vec<AgentWalletState> = Vec::new();
+        {
+            let iter = self
+                .db
+                .iterator_cf(&cf_agents, rocksdb::IteratorMode::Start);
+            for item in iter {
+                let (_, value_bytes) =
+                    item.map_err(|e| RillError::Storage(e.to_string()))?;
+                let (state, _): (AgentWalletState, _) =
+                    bincode::decode_from_slice(&value_bytes, bincode::config::standard())
+                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                agents.push(state);
+            }
+        }
+
+        for mut state in agents {
+            // Get the outbound volume for this agent during the epoch (0 if none).
+            let epoch_volume = agent_epoch_volumes
+                .get(&state.pubkey_hash)
+                .copied()
+                .unwrap_or(0);
+
+            // Push the new epoch volume into the rolling baseline.
+            state.velocity_baseline.push_epoch(epoch_volume);
+
+            // Compute wallet age in epochs.
+            let age_in_epochs = (height.saturating_sub(state.registered_at_block))
+                / CONDUCT_PERIOD_BLOCKS;
+
+            // Compute individual signal scores.
+            let velocity_anomaly =
+                conduct::velocity_anomaly_score(&state.velocity_baseline, epoch_volume);
+            let wallet_age = conduct::wallet_age_score(age_in_epochs);
+
+            // Compute raw score (neutral 500 for signals not yet implemented).
+            let raw_score =
+                conduct::compute_raw_score(500, 500, velocity_anomaly, 500, wallet_age);
+
+            // Apply exponential smoothing to avoid sudden score jumps.
+            let new_score = conduct::smooth_score(state.conduct_score, raw_score);
+
+            // Derive the updated decay multiplier from the new score.
+            let new_multiplier_bps = conduct::score_to_multiplier_bps(new_score);
+
+            tracing::debug!(
+                pubkey_hash = %state.pubkey_hash,
+                height,
+                epoch_volume,
+                velocity_anomaly,
+                wallet_age,
+                raw_score,
+                old_score = state.conduct_score,
+                new_score,
+                new_multiplier_bps,
+                "conduct epoch update"
+            );
+
+            state.conduct_score = new_score;
+            state.conduct_multiplier_bps = new_multiplier_bps;
+
+            let state_bytes =
+                bincode::encode_to_vec(&state, bincode::config::standard())
+                    .map_err(|e| RillError::Storage(e.to_string()))?;
+            batch.put_cf(cf_agents, state.pubkey_hash.as_bytes(), &state_bytes);
+        }
+
+        Ok(())
+    }
+
     /// Get a geometric block locator for chain synchronization.
     ///
     /// Returns hashes in the pattern: tip, tip-1, tip-2, tip-4, tip-8, ..., genesis.
@@ -654,6 +745,9 @@ impl ChainStore for RocksStore {
         // Track cluster balance deltas.
         let mut cluster_deltas: HashMap<Hash256, i128> = HashMap::new();
 
+        // Track outbound volumes per agent wallet for conduct epoch processing.
+        let mut agent_epoch_volumes: HashMap<Hash256, u64> = HashMap::new();
+
         // Delete spent UTXOs and subtract their values from cluster balances.
         for (outpoint, entry) in &undo.spent_utxos {
             let key = Self::encode_outpoint(outpoint)?;
@@ -666,6 +760,14 @@ impl ChainStore for RocksStore {
             // Subtract spent UTXO value from its cluster.
             let delta = cluster_deltas.entry(entry.cluster_id).or_insert(0);
             *delta -= entry.output.value as i128;
+
+            // Accumulate outbound volume for agent wallets.
+            if self.is_agent_wallet(&entry.output.pubkey_hash)? {
+                let vol = agent_epoch_volumes
+                    .entry(entry.output.pubkey_hash)
+                    .or_insert(0);
+                *vol = vol.saturating_add(entry.output.value);
+            }
         }
 
         // Create new UTXOs with proper cluster tracking.
@@ -739,6 +841,7 @@ impl ChainStore for RocksStore {
                                 conduct_multiplier_bps: rill_core::constants::CONDUCT_MULTIPLIER_DEFAULT_BPS,
                                 undertow_active: false,
                                 undertow_expires_at: 0,
+                                velocity_baseline: VelocityBaseline::new(),
                             };
                             let state_bytes = bincode::encode_to_vec(&state, bincode::config::standard())
                                 .map_err(|e| RillError::Storage(e.to_string()))?;
@@ -807,6 +910,11 @@ impl ChainStore for RocksStore {
             META_CIRCULATING_SUPPLY,
             new_supply.to_le_bytes(),
         );
+
+        // Process conduct score epoch at boundaries (skip genesis block 0).
+        if height > 0 && height % CONDUCT_PERIOD_BLOCKS == 0 {
+            self.process_conduct_epoch(&mut batch, height, &agent_epoch_volumes)?;
+        }
 
         // Write atomically.
         self.db

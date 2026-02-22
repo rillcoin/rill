@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::conduct::VelocityBaseline;
 use crate::types::{Hash256, WalletType};
 
 /// Persistent state for a registered agent wallet.
@@ -33,6 +34,8 @@ pub struct AgentWalletState {
     pub undertow_active: bool,
     /// Block height at which the Undertow penalty expires.
     pub undertow_expires_at: u64,
+    /// Rolling velocity statistics for Undertow detection and scoring.
+    pub velocity_baseline: VelocityBaseline,
 }
 
 /// RPC response type summarizing an agent's conduct profile.
@@ -75,6 +78,7 @@ mod tests {
             conduct_multiplier_bps: CONDUCT_MULTIPLIER_DEFAULT_BPS,
             undertow_active: false,
             undertow_expires_at: 0,
+            velocity_baseline: VelocityBaseline::new(),
         };
         let encoded = bincode::encode_to_vec(&state, bincode::config::standard()).unwrap();
         let (decoded, _): (AgentWalletState, usize) =
