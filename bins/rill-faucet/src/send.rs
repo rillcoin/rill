@@ -15,7 +15,7 @@ use rill_core::constants::MIN_TX_FEE;
 use rill_core::error::RillError;
 use rill_core::traits::ChainState;
 use rill_core::types::{
-    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, UtxoEntry,
+    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType, UtxoEntry,
 };
 use rill_wallet::{CoinSelector, Wallet};
 
@@ -227,6 +227,7 @@ pub async fn send_rill(
 
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs,
         outputs,
         lock_time: 0,
@@ -440,6 +441,7 @@ pub async fn send_from_mnemonic(
 
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs,
         outputs,
         lock_time: 0,

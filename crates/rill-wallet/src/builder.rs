@@ -8,7 +8,7 @@
 use rill_core::address::Address;
 use rill_core::crypto::sign_transaction_input;
 use rill_core::traits::{ChainState, DecayCalculator};
-use rill_core::types::{Hash256, OutPoint, Transaction, TxInput, TxOutput, UtxoEntry};
+use rill_core::types::{Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType, UtxoEntry};
 
 use crate::coin_selection::{CoinSelection, CoinSelector};
 use crate::error::WalletError;
@@ -163,6 +163,7 @@ impl TransactionBuilder {
 
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs,
             outputs,
             lock_time: self.lock_time,

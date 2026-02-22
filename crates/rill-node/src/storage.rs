@@ -11,6 +11,7 @@ use std::path::Path;
 
 use rocksdb::{ColumnFamilyDescriptor, Options, SliceTransform, WriteBatch, DB};
 
+use rill_core::agent::AgentWalletState;
 use rill_core::chain_state::{ChainStore, ConnectBlockResult, DisconnectBlockResult};
 use rill_core::error::{ChainStateError, RillError};
 use rill_core::genesis;
@@ -27,6 +28,7 @@ const CF_UNDO: &str = "undo";
 const CF_METADATA: &str = "metadata";
 const CF_CLUSTERS: &str = "clusters";
 const CF_ADDRESS_INDEX: &str = "address_index";
+const CF_AGENT_WALLETS: &str = "agent_wallets";
 
 /// All column family names.
 const ALL_CFS: &[&str] = &[
@@ -38,6 +40,7 @@ const ALL_CFS: &[&str] = &[
     CF_METADATA,
     CF_CLUSTERS,
     CF_ADDRESS_INDEX,
+    CF_AGENT_WALLETS,
 ];
 
 // --- Metadata keys ---
@@ -414,6 +417,39 @@ impl RocksStore {
         Ok(result)
     }
 
+    /// Look up an agent wallet state by pubkey hash.
+    pub fn get_agent_wallet(&self, pubkey_hash: &Hash256) -> Result<Option<AgentWalletState>, RillError> {
+        let cf = self.cf_handle(CF_AGENT_WALLETS)?;
+        match self.db.get_cf(&cf, pubkey_hash.as_bytes())
+            .map_err(|e| RillError::Storage(e.to_string()))?
+        {
+            Some(bytes) => {
+                let (state, _): (AgentWalletState, _) =
+                    bincode::decode_from_slice(&bytes, bincode::config::standard())
+                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                Ok(Some(state))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Store an agent wallet state.
+    pub fn put_agent_wallet(&self, state: &AgentWalletState) -> Result<(), RillError> {
+        let cf = self.cf_handle(CF_AGENT_WALLETS)?;
+        let bytes = bincode::encode_to_vec(state, bincode::config::standard())
+            .map_err(|e| RillError::Storage(e.to_string()))?;
+        self.db.put_cf(&cf, state.pubkey_hash.as_bytes(), &bytes)
+            .map_err(|e| RillError::Storage(e.to_string()))
+    }
+
+    /// Check if a pubkey hash is registered as an agent wallet.
+    pub fn is_agent_wallet(&self, pubkey_hash: &Hash256) -> Result<bool, RillError> {
+        let cf = self.cf_handle(CF_AGENT_WALLETS)?;
+        self.db.get_cf(&cf, pubkey_hash.as_bytes())
+            .map(|v| v.is_some())
+            .map_err(|e| RillError::Storage(e.to_string()))
+    }
+
     /// Get a geometric block locator for chain synchronization.
     ///
     /// Returns hashes in the pattern: tip, tip-1, tip-2, tip-4, tip-8, ..., genesis.
@@ -682,6 +718,34 @@ impl ChainStore for RocksStore {
                 // Add created UTXO value to its cluster.
                 let delta = cluster_deltas.entry(output_cluster_id).or_insert(0);
                 *delta += output.value as i128;
+            }
+        }
+
+        // Process AgentRegister transactions.
+        let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+        for tx in &block.transactions {
+            if tx.tx_type == rill_core::types::TxType::AgentRegister {
+                // The first output's pubkey_hash is the registrant.
+                if let Some(first_output) = tx.outputs.first() {
+                    if first_output.value >= rill_core::constants::AGENT_REGISTRATION_STAKE {
+                        // Check not already registered.
+                        if !self.is_agent_wallet(&first_output.pubkey_hash)? {
+                            let state = AgentWalletState {
+                                pubkey_hash: first_output.pubkey_hash,
+                                registered_at_block: height,
+                                stake_balance: first_output.value,
+                                stake_locked_until: height + rill_core::constants::CONDUCT_PERIOD_BLOCKS,
+                                conduct_score: rill_core::constants::CONDUCT_SCORE_DEFAULT,
+                                conduct_multiplier_bps: rill_core::constants::CONDUCT_MULTIPLIER_DEFAULT_BPS,
+                                undertow_active: false,
+                                undertow_expires_at: 0,
+                            };
+                            let state_bytes = bincode::encode_to_vec(&state, bincode::config::standard())
+                                .map_err(|e| RillError::Storage(e.to_string()))?;
+                            batch.put_cf(cf_agents, state.pubkey_hash.as_bytes(), &state_bytes);
+                        }
+                    }
+                }
             }
         }
 
@@ -1025,7 +1089,7 @@ mod tests {
     use rill_core::constants::COIN;
     use rill_core::genesis::{self, DEV_FUND_PREMINE};
     use rill_core::merkle;
-    use rill_core::types::{TxInput, TxOutput};
+    use rill_core::types::{TxInput, TxOutput, TxType};
 
     // ------------------------------------------------------------------
     // Helpers
@@ -1045,6 +1109,7 @@ mod tests {
     fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: height.to_le_bytes().to_vec(),
@@ -1062,6 +1127,7 @@ mod tests {
     fn make_tx(outpoints: &[OutPoint], output_value: u64, pubkey_hash: Hash256) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: outpoints
                 .iter()
                 .map(|op| TxInput {

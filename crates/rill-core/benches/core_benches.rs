@@ -8,7 +8,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rill_core::crypto::KeyPair;
 use rill_core::merkle::merkle_root;
 use rill_core::types::{
-    BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+    BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType,
 };
 
 /// Generate `n` deterministic 32-byte hashes for Merkle benchmarks.
@@ -35,6 +35,7 @@ fn sample_block_header() -> BlockHeader {
 fn sample_transaction() -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint {
                 txid: Hash256([0x11; 32]),

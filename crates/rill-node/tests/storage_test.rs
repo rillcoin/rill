@@ -4,7 +4,7 @@ use rill_core::chain_state::ChainStore;
 use rill_core::constants::COIN;
 use rill_core::genesis;
 use rill_core::merkle;
-use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput};
+use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType};
 use rill_node_lib::storage::RocksStore;
 
 fn pkh(seed: u8) -> Hash256 {
@@ -14,6 +14,7 @@ fn pkh(seed: u8) -> Hash256 {
 fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: height.to_le_bytes().to_vec(),
@@ -31,6 +32,7 @@ fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transa
 fn make_tx(outpoints: &[OutPoint], output_value: u64, pubkey_hash: Hash256) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: outpoints
             .iter()
             .map(|op| TxInput {

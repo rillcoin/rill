@@ -263,7 +263,7 @@ mod tests {
     use super::*;
     use crate::constants::COIN;
     use crate::crypto::KeyPair;
-    use crate::types::{Hash256, TxInput, TxOutput};
+    use crate::types::{Hash256, TxInput, TxOutput, TxType};
     use std::collections::HashMap;
 
     // --- Helpers ---
@@ -277,6 +277,7 @@ mod tests {
     ) -> Transaction {
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: outpoint,
                 signature: vec![],
@@ -327,6 +328,7 @@ mod tests {
     fn sample_coinbase() -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: b"block height 1".to_vec(),
@@ -348,6 +350,7 @@ mod tests {
     fn structural_rejects_empty_inputs() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![TxOutput {
                 value: 100,
@@ -365,6 +368,7 @@ mod tests {
     fn structural_rejects_empty_outputs() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -383,6 +387,7 @@ mod tests {
     fn structural_rejects_zero_value_output() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -404,6 +409,7 @@ mod tests {
     fn structural_rejects_zero_value_second_output() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -431,6 +437,7 @@ mod tests {
     fn structural_rejects_output_value_overflow() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -467,6 +474,7 @@ mod tests {
     fn coinbase_accepts_empty_data() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -485,6 +493,7 @@ mod tests {
     fn coinbase_rejects_multiple_inputs() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![
                 TxInput {
                     previous_output: OutPoint::null(),
@@ -515,6 +524,7 @@ mod tests {
     fn coinbase_rejects_oversized_data() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![0xAB; MAX_COINBASE_DATA + 1],
@@ -536,6 +546,7 @@ mod tests {
     fn coinbase_accepts_max_data() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![0xAB; MAX_COINBASE_DATA],
@@ -570,6 +581,7 @@ mod tests {
     fn structural_rejects_null_outpoint_in_regular() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![0; 64],
@@ -593,6 +605,7 @@ mod tests {
         let kp = KeyPair::generate();
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![
                 TxInput {
                     previous_output: sample_outpoint(),
@@ -625,6 +638,7 @@ mod tests {
         let op = sample_outpoint();
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![
                 TxInput {
                     previous_output: op.clone(),
@@ -656,6 +670,7 @@ mod tests {
     fn structural_rejects_short_signature() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: sample_outpoint(),
                 signature: vec![0; 63], // too short
@@ -677,6 +692,7 @@ mod tests {
     fn structural_rejects_short_pubkey() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: sample_outpoint(),
                 signature: vec![0; 64],
@@ -698,6 +714,7 @@ mod tests {
     fn structural_rejects_long_signature() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: sample_outpoint(),
                 signature: vec![0; 65], // too long
@@ -896,6 +913,7 @@ mod tests {
 
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![
                 TxInput {
                     previous_output: op1.clone(),
@@ -941,6 +959,7 @@ mod tests {
 
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: op.clone(),
                 signature: vec![],

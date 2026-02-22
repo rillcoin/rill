@@ -40,6 +40,7 @@ fn pkh(seed: u8) -> Hash256 {
 fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: height.to_le_bytes().to_vec(),
@@ -79,6 +80,7 @@ fn make_spending_tx(
 ) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: outpoints
             .iter()
             .map(|op| TxInput {
@@ -99,6 +101,7 @@ fn make_spending_tx(
 fn make_mempool_tx(seed: u8, output_value: u64, lock_time: u64) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint {
                 txid: Hash256([seed; 32]),
@@ -209,6 +212,7 @@ proptest! {
         // Invariant 1: total_output_value() uses checked arithmetic
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint {
                     txid: Hash256([0x11; 32]),
@@ -388,6 +392,7 @@ proptest! {
         // Build a block with inflated coinbase.
         let cb = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: height.to_le_bytes().to_vec(),
@@ -572,6 +577,7 @@ proptest! {
 
             let cb = Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: OutPoint::null(),
                     signature: h.to_le_bytes().to_vec(),

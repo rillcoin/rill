@@ -89,6 +89,18 @@ pub enum MempoolError {
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum AgentError {
+    #[error("wallet is not an agent wallet")]
+    NotAgentWallet,
+    #[error("insufficient stake: need {need}, have {have}")]
+    InsufficientStake { need: u64, have: u64 },
+    #[error("agent already registered")]
+    AlreadyRegistered,
+    #[error("agent wallet not found")]
+    NotFound,
+}
+
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ChainStateError {
     #[error("empty chain: no blocks connected")] EmptyChain,
     #[error("block not found: {0}")] BlockNotFound(String),
@@ -108,5 +120,6 @@ pub enum RillError {
     #[error(transparent)] Address(#[from] AddressError),
     #[error(transparent)] Mempool(#[from] MempoolError),
     #[error(transparent)] ChainState(#[from] ChainStateError),
+    #[error(transparent)] Agent(#[from] AgentError),
     #[error("storage: {0}")] Storage(String),
 }

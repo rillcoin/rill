@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 
 use crate::constants::{BPS_PRECISION, DEV_FUND_BPS, MAX_SUPPLY};
 use crate::merkle;
-use crate::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput};
+use crate::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType};
 
 /// Genesis block timestamp: January 1, 2026 00:00:00 UTC.
 pub const GENESIS_TIMESTAMP: u64 = 1_767_225_600;
@@ -67,6 +67,7 @@ fn build_genesis() -> GenesisData {
 fn build_genesis_coinbase() -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: GENESIS_MESSAGE.to_vec(),

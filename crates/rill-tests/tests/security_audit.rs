@@ -34,6 +34,7 @@ fn vuln_txid_malleability_signature_changes_txid() {
     let kp = KeyPair::generate();
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint {
                 txid: Hash256([0x11; 32]),
@@ -79,6 +80,7 @@ fn vuln_chain_state_silent_utxo_miss() {
     // Block 0: coinbase
     let cb0 = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: vec![],
@@ -96,6 +98,7 @@ fn vuln_chain_state_silent_utxo_miss() {
     // Block 1: tx spending a UTXO that doesn't exist in our set
     let cb1 = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: 1u64.to_le_bytes().to_vec(),
@@ -109,6 +112,7 @@ fn vuln_chain_state_silent_utxo_miss() {
     };
     let phantom_spend = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint {
                 txid: Hash256([0xFF; 32]), // does not exist
@@ -157,6 +161,7 @@ fn vuln_locktime_not_enforced() {
     let kp = KeyPair::generate();
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint {
                 txid: Hash256([0x11; 32]),
@@ -222,6 +227,7 @@ fn vuln_arbitrary_transaction_version_accepted() {
     for version in [0, 2, 42, u64::MAX] {
         let mut tx = Transaction {
             version,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint {
                     txid: Hash256([0x11; 32]),
@@ -368,6 +374,7 @@ fn vuln_timestamp_manipulation_minimum_increment() {
 
     let cb = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: b"height 1".to_vec(),
@@ -432,6 +439,7 @@ fn vuln_many_inputs_dos() {
 
     let tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs,
         outputs: vec![TxOutput {
             value: COIN,
@@ -664,6 +672,7 @@ fn invariant_block_validation_deterministic() {
 
     let cb = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: b"height 1".to_vec(),
@@ -735,6 +744,7 @@ fn invariant_utxo_consistency_after_reorg() {
     let cb1 = make_coinbase_unique(50 * COIN, Hash256([0xBB; 32]), 1);
     let spend = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint { txid: cb0_txid, index: 0 },
             signature: vec![0; 64],
@@ -794,6 +804,7 @@ fn invariant_no_double_spend_in_block() {
     let tx2 = make_signed_tx(&kp, op.clone(), 24 * COIN, Hash256([0xCC; 32]));
     let cb = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: b"height 1".to_vec(),
@@ -844,6 +855,7 @@ fn invariant_coinbase_maturity_enforced() {
 
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: op.clone(),
             signature: vec![],
@@ -1012,6 +1024,7 @@ fn regression_signature_verification_boundary_values() {
     // Test with minimum valid output value (1 rill)
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint {
                 txid: Hash256([0x11; 32]),
@@ -1066,6 +1079,7 @@ fn make_block(prev_hash: Hash256, timestamp: u64, txs: Vec<Transaction>) -> Bloc
 fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: height.to_le_bytes().to_vec(),
@@ -1087,6 +1101,7 @@ fn make_signed_tx(
 ) -> Transaction {
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: outpoint,
             signature: vec![],
@@ -1225,6 +1240,7 @@ mod proptest_adversarial {
         ) {
             let tx = Transaction {
                 version,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: OutPoint::null(),
                     signature: vec![],
@@ -1252,6 +1268,7 @@ mod proptest_adversarial {
         ) {
             let tx = Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: OutPoint::null(),
                     signature: vec![],
@@ -1464,6 +1481,7 @@ fn vuln_block_version_not_validated() {
     for version in [0u64, 2, 42, u64::MAX] {
         let cb = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: b"height 1".to_vec(),
@@ -1537,6 +1555,7 @@ fn invariant_signing_hash_commits_to_input_index() {
 
     let mut tx = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![
             TxInput {
                 previous_output: op1.clone(),

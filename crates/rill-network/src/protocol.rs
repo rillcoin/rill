@@ -239,7 +239,7 @@ impl libp2p::request_response::Codec for RillCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rill_core::types::{BlockHeader, TxInput, TxOutput};
+    use rill_core::types::{BlockHeader, TxInput, TxOutput, TxType};
 
     fn sample_block() -> Block {
         Block {
@@ -253,6 +253,7 @@ mod tests {
             },
             transactions: vec![Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: rill_core::types::OutPoint::null(),
                     signature: vec![],
@@ -270,6 +271,7 @@ mod tests {
     fn sample_tx() -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: rill_core::types::OutPoint {
                     txid: Hash256([0x11; 32]),

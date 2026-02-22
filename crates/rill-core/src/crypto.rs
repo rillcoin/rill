@@ -271,7 +271,7 @@ pub fn verify_transaction_input(
 mod tests {
     use super::*;
     use crate::constants::COIN;
-    use crate::types::{OutPoint, TxInput, TxOutput};
+    use crate::types::{OutPoint, TxInput, TxOutput, TxType};
 
     // --- KeyPair ---
 
@@ -423,6 +423,7 @@ mod tests {
     fn unsigned_tx(kp: &KeyPair) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint {
                     txid: Hash256([0x11; 32]),
@@ -647,6 +648,7 @@ mod tests {
 
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![
                 TxInput {
                     previous_output: OutPoint {

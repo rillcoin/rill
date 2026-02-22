@@ -288,7 +288,7 @@ mod tests {
     use super::*;
     use crate::constants::{BLOCK_TIME_SECS, COIN, INITIAL_REWARD};
     use crate::crypto::{self, KeyPair};
-    use crate::types::{BlockHeader, Transaction, TxInput, TxOutput};
+    use crate::types::{BlockHeader, Transaction, TxInput, TxOutput, TxType};
     use std::collections::HashMap;
 
     // --- Helpers ---
@@ -297,6 +297,7 @@ mod tests {
     fn make_coinbase(reward: u64, pubkey_hash: Hash256) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: b"height 1".to_vec(),
@@ -319,6 +320,7 @@ mod tests {
     ) -> Transaction {
         let mut tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: outpoint,
                 signature: vec![],
@@ -544,6 +546,7 @@ mod tests {
         // Coinbase with zero-value output
         let bad_cb = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -568,6 +571,7 @@ mod tests {
         // Regular tx with too-short signature
         let bad_tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint {
                     txid: Hash256([0x22; 32]),

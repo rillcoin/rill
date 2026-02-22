@@ -212,6 +212,38 @@ impl Wallet {
         TransactionBuilder::sign(unsigned, &self.keychain)
     }
 
+    /// Register this wallet as an agent wallet.
+    ///
+    /// Constructs and signs a `TxType::AgentRegister` transaction that sends
+    /// at least [`AGENT_REGISTRATION_STAKE`](rill_core::constants::AGENT_REGISTRATION_STAKE)
+    /// to the wallet's own address as the stake output.
+    pub fn register_as_agent(
+        &mut self,
+        decay_calc: &dyn DecayCalculator,
+        chain_state: &dyn ChainState,
+        height: u64,
+    ) -> Result<Transaction, WalletError> {
+        use rill_core::constants::AGENT_REGISTRATION_STAKE;
+        use rill_core::types::TxType;
+
+        let stake_addr = self.next_address();
+        let stake_amount = AGENT_REGISTRATION_STAKE;
+
+        // Build the transaction using the normal send flow (coin selection + change).
+        let utxo_list: Vec<(OutPoint, UtxoEntry)> = self.utxos.clone().into_iter().collect();
+        let change_addr = self.next_address();
+
+        let mut builder = TransactionBuilder::new();
+        builder.add_recipient(stake_addr, stake_amount);
+
+        let mut unsigned = builder.build(&utxo_list, &change_addr, decay_calc, chain_state, height)?;
+
+        // Override tx_type to AgentRegister.
+        unsigned.tx.tx_type = TxType::AgentRegister;
+
+        TransactionBuilder::sign(unsigned, &self.keychain)
+    }
+
     /// Save the wallet to an encrypted file.
     ///
     /// # File format

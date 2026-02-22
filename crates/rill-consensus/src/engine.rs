@@ -15,7 +15,7 @@ use rill_core::constants::MAX_COINBASE_DATA;
 use rill_core::error::BlockError;
 use rill_core::traits::{BlockProducer, ChainState, DecayCalculator};
 use rill_core::types::{
-    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType,
 };
 use rill_core::{difficulty, merkle, reward};
 
@@ -268,6 +268,7 @@ impl ConsensusEngine {
 
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: height_bytes[..len].to_vec(),
@@ -534,6 +535,7 @@ mod tests {
             let sig = height.to_le_bytes().to_vec();
             let coinbase = Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: OutPoint::null(),
                     signature: sig,
@@ -981,6 +983,7 @@ mod tests {
         let prev_hash = genesis::genesis_hash();
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: 1u64.to_le_bytes().to_vec(),
@@ -1023,6 +1026,7 @@ mod tests {
         let prev_hash = genesis::genesis_hash();
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: 1u64.to_le_bytes().to_vec(),

@@ -810,6 +810,7 @@ async fn wallet_send(args: SendArgs) -> Result<()> {
 
     let mut tx = rill_core::types::Transaction {
         version: 1,
+        tx_type: rill_core::types::TxType::default(),
         inputs,
         outputs,
         lock_time: 0,

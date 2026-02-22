@@ -183,6 +183,27 @@ pub struct UtxoJson {
     pub pubkey_hash: String,
 }
 
+/// JSON representation of an agent's conduct profile.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConductProfileJson {
+    /// Rill address.
+    pub address: String,
+    /// Wallet type: "standard" or "agent".
+    pub wallet_type: String,
+    /// Conduct score (0–1000).
+    pub conduct_score: u16,
+    /// Decay multiplier in basis points (10,000 = 1.0×).
+    pub conduct_multiplier_bps: u64,
+    /// Effective decay rate in parts-per-billion at current concentration.
+    pub effective_decay_rate_ppb: u64,
+    /// Whether the Undertow penalty is active.
+    pub undertow_active: bool,
+    /// Block height at which the agent was registered.
+    pub registered_at_block: u64,
+    /// Number of blocks since registration.
+    pub wallet_age_blocks: u64,
+}
+
 /// Parse a 64-character hex string into a Hash256.
 pub fn parse_hash(hex_str: &str) -> Result<Hash256, ErrorObjectOwned> {
     if hex_str.len() != 64 {
@@ -275,6 +296,13 @@ pub trait RillRpc {
     /// Returns the current sync status of the node.
     #[method(name = "getsyncstatus")]
     async fn get_sync_status(&self) -> Result<SyncStatusJson, ErrorObjectOwned>;
+
+    /// Returns the conduct profile for an agent wallet.
+    #[method(name = "getAgentConductProfile")]
+    async fn get_agent_conduct_profile(
+        &self,
+        address: String,
+    ) -> Result<ConductProfileJson, ErrorObjectOwned>;
 }
 
 /// Implementation of the Rill JSON-RPC server.
@@ -588,6 +616,51 @@ impl RillRpcServer for RpcServerImpl {
             peer_count: self.node.peer_count(),
             best_block_hash: hex::encode(tip_hash.as_bytes()),
         })
+    }
+
+    async fn get_agent_conduct_profile(
+        &self,
+        address: String,
+    ) -> Result<ConductProfileJson, ErrorObjectOwned> {
+        let addr = address
+            .parse::<rill_core::address::Address>()
+            .map_err(|e| rpc_error(-5, &format!("invalid address: {e}")))?;
+        let pubkey_hash = addr.pubkey_hash();
+
+        let (tip_height, _) = self
+            .node
+            .chain_tip()
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        match self
+            .node
+            .get_agent_wallet(&pubkey_hash)
+            .map_err(|e| rpc_error(-1, &e.to_string()))?
+        {
+            Some(state) => {
+                let wallet_age = tip_height.saturating_sub(state.registered_at_block);
+                Ok(ConductProfileJson {
+                    address,
+                    wallet_type: "agent".to_string(),
+                    conduct_score: state.conduct_score,
+                    conduct_multiplier_bps: state.conduct_multiplier_bps,
+                    effective_decay_rate_ppb: 0, // Requires concentration context; Phase 2
+                    undertow_active: state.undertow_active,
+                    registered_at_block: state.registered_at_block,
+                    wallet_age_blocks: wallet_age,
+                })
+            }
+            None => Ok(ConductProfileJson {
+                address,
+                wallet_type: "standard".to_string(),
+                conduct_score: 0,
+                conduct_multiplier_bps: rill_core::constants::CONDUCT_MULTIPLIER_STANDARD_BPS,
+                effective_decay_rate_ppb: 0,
+                undertow_active: false,
+                registered_at_block: 0,
+                wallet_age_blocks: 0,
+            }),
+        }
     }
 }
 

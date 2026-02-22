@@ -9,6 +9,37 @@ use std::fmt;
 
 use crate::error::TransactionError;
 
+/// Wallet type distinguishing standard wallets from agent wallets.
+///
+/// Agent wallets participate in the Proof of Conduct system and have
+/// dynamic decay multipliers based on their conduct score.
+#[derive(
+    Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default,
+    bincode::Encode, bincode::Decode,
+)]
+pub enum WalletType {
+    /// Standard wallet with fixed 1.0× decay multiplier.
+    #[default]
+    Standard,
+    /// Agent wallet with conduct-adjusted decay multiplier.
+    Agent,
+}
+
+/// Transaction type discriminant.
+///
+/// Included in the transaction's canonical hash to prevent type confusion.
+#[derive(
+    Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash, Default,
+    bincode::Encode, bincode::Decode,
+)]
+pub enum TxType {
+    /// Standard value transfer.
+    #[default]
+    Standard,
+    /// Agent wallet registration (requires stake output).
+    AgentRegister,
+}
+
 /// A 32-byte hash value.
 ///
 /// Used for transaction IDs (BLAKE3), block header hashes (SHA-256),
@@ -127,6 +158,8 @@ pub struct TxOutput {
 pub struct Transaction {
     /// Protocol version.
     pub version: u64,
+    /// Transaction type (Standard or AgentRegister).
+    pub tx_type: TxType,
     /// Inputs consuming previous outputs.
     pub inputs: Vec<TxInput>,
     /// New outputs created by this transaction.
@@ -157,6 +190,12 @@ impl Transaction {
         let version_bytes = bincode::encode_to_vec(self.version, bincode::config::standard())
             .map_err(|e| TransactionError::Serialization(e.to_string()))?;
         data.extend_from_slice(&version_bytes);
+
+        // Transaction type
+        let tx_type_bytes =
+            bincode::encode_to_vec(self.tx_type, bincode::config::standard())
+                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+        data.extend_from_slice(&tx_type_bytes);
 
         // Inputs (outpoints only, no signatures/pubkeys)
         let inputs_len_bytes =
@@ -318,6 +357,7 @@ mod tests {
     fn sample_tx() -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint {
                     txid: Hash256([0x11; 32]),
@@ -337,6 +377,7 @@ mod tests {
     fn sample_coinbase() -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -424,6 +465,7 @@ mod tests {
     fn multi_input_not_coinbase() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![
                 TxInput {
                     previous_output: OutPoint::null(),
@@ -446,6 +488,7 @@ mod tests {
     fn total_output_value_sums_correctly() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![
                 TxOutput { value: 100, pubkey_hash: Hash256::ZERO },
@@ -461,6 +504,7 @@ mod tests {
     fn total_output_value_overflow_returns_none() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![
                 TxOutput { value: u64::MAX, pubkey_hash: Hash256::ZERO },
@@ -475,6 +519,7 @@ mod tests {
     fn total_output_value_empty() {
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![],
             lock_time: 0,

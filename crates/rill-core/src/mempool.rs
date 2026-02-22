@@ -344,7 +344,7 @@ mod tests {
     use super::*;
     use crate::constants::COIN;
     use crate::merkle;
-    use crate::types::{BlockHeader, TxInput, TxOutput};
+    use crate::types::{BlockHeader, TxInput, TxOutput, TxType};
 
     // ------------------------------------------------------------------
     // Helpers
@@ -354,6 +354,7 @@ mod tests {
     fn make_tx(outpoints: &[OutPoint], output_value: u64, lock_time: u64) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: outpoints
                 .iter()
                 .map(|op| TxInput {
@@ -793,6 +794,7 @@ mod tests {
         // Build a block containing the first tx.
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -838,6 +840,7 @@ mod tests {
         let block_tx = make_tx(&[op], 48 * COIN, 99);
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -879,6 +882,7 @@ mod tests {
 
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -914,6 +918,7 @@ mod tests {
         let mut pool = Mempool::new(100, 100_000);
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],

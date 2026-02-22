@@ -125,6 +125,52 @@ impl DecayCalculator for DecayEngine {
         Ok(nominal_value.saturating_sub(effective as u64))
     }
 
+    fn compute_decay_with_conduct(
+        &self,
+        nominal_value: u64,
+        concentration_ppb: u64,
+        blocks_held: u64,
+        conduct_multiplier_bps: u64,
+    ) -> Result<u64, DecayError> {
+        if blocks_held == 0 || nominal_value == 0 {
+            return Ok(0);
+        }
+
+        let base_rate = self.decay_rate_ppb(concentration_ppb)?;
+        if base_rate == 0 {
+            return Ok(0);
+        }
+
+        // Apply conduct multiplier: adjusted_rate = base_rate * multiplier / BPS_PRECISION
+        // Use u128 to prevent overflow (base_rate up to ~1.5B, multiplier up to 100,000).
+        let adjusted_rate = (base_rate as u128)
+            .checked_mul(conduct_multiplier_bps as u128)
+            .ok_or(DecayError::ArithmeticOverflow)?
+            / BPS_PRECISION as u128;
+
+        // Cap at DECAY_PRECISION to prevent >100% decay per block (Undertow 10× safety).
+        let adjusted_rate = adjusted_rate.min(DECAY_PRECISION as u128) as u64;
+
+        if adjusted_rate >= DECAY_PRECISION {
+            return Ok(nominal_value);
+        }
+
+        // retention_per_block = (DECAY_PRECISION - adjusted_rate) / DECAY_PRECISION
+        let retention = DECAY_PRECISION - adjusted_rate;
+
+        // Compound over blocks_held
+        let retention_total = fixed_pow(retention, blocks_held, DECAY_PRECISION)?;
+
+        // effective = nominal * retention_total / PRECISION
+        let effective = (nominal_value as u128)
+            .checked_mul(retention_total as u128)
+            .ok_or(DecayError::ArithmeticOverflow)?
+            / DECAY_PRECISION as u128;
+
+        // Invariant: decay = nominal - effective
+        Ok(nominal_value.saturating_sub(effective as u64))
+    }
+
     fn decay_pool_release(&self, pool_balance: u64) -> Result<u64, DecayError> {
         pool_balance
             .checked_mul(DECAY_POOL_RELEASE_BPS)
@@ -411,6 +457,118 @@ mod tests {
         assert_eq!(dyn_e.decay_rate_ppb(0).unwrap(), 0);
     }
 
+    // --- compute_decay_with_conduct ---
+
+    #[test]
+    fn conduct_1x_matches_base() {
+        let e = engine();
+        let value = 1000 * COIN;
+        let conc = DECAY_C_THRESHOLD_PPB + 500_000;
+        let blocks = 50;
+        let base = e.compute_decay(value, conc, blocks).unwrap();
+        let conducted = e
+            .compute_decay_with_conduct(value, conc, blocks, BPS_PRECISION)
+            .unwrap();
+        assert_eq!(base, conducted, "1.0× multiplier should match base decay");
+    }
+
+    #[test]
+    fn conduct_1_5x_decays_more() {
+        let e = engine();
+        let value = 1000 * COIN;
+        let conc = DECAY_C_THRESHOLD_PPB + 500_000;
+        let blocks = 50;
+        let base = e.compute_decay(value, conc, blocks).unwrap();
+        let conducted = e
+            .compute_decay_with_conduct(value, conc, blocks, 15_000)
+            .unwrap();
+        assert!(
+            conducted > base,
+            "1.5× multiplier should decay more: {conducted} > {base}"
+        );
+    }
+
+    #[test]
+    fn conduct_0_5x_decays_less() {
+        let e = engine();
+        let value = 1000 * COIN;
+        let conc = DECAY_C_THRESHOLD_PPB + 500_000;
+        let blocks = 50;
+        let base = e.compute_decay(value, conc, blocks).unwrap();
+        let conducted = e
+            .compute_decay_with_conduct(value, conc, blocks, 5_000)
+            .unwrap();
+        assert!(
+            conducted < base,
+            "0.5× multiplier should decay less: {conducted} < {base}"
+        );
+    }
+
+    #[test]
+    fn conduct_2x_decays_more_than_1_5x() {
+        let e = engine();
+        let value = 1000 * COIN;
+        let conc = DECAY_C_THRESHOLD_PPB + 500_000;
+        let blocks = 50;
+        let d_1_5 = e
+            .compute_decay_with_conduct(value, conc, blocks, 15_000)
+            .unwrap();
+        let d_2_0 = e
+            .compute_decay_with_conduct(value, conc, blocks, 20_000)
+            .unwrap();
+        assert!(d_2_0 > d_1_5, "2.0× > 1.5×: {d_2_0} > {d_1_5}");
+    }
+
+    #[test]
+    fn conduct_10x_undertow_capped() {
+        let e = engine();
+        let value = 1000 * COIN;
+        let conc = DECAY_C_THRESHOLD_PPB + 500_000;
+        let blocks = 50;
+        // 10× = Undertow. Rate should be capped at DECAY_PRECISION.
+        let conducted = e
+            .compute_decay_with_conduct(value, conc, blocks, 100_000)
+            .unwrap();
+        assert!(conducted <= value, "decay must not exceed nominal");
+    }
+
+    #[test]
+    fn conduct_invariant_effective_plus_decay() {
+        let e = engine();
+        let value = 1000 * COIN;
+        let conc = DECAY_C_THRESHOLD_PPB + 500_000;
+        let blocks = 50;
+
+        for multiplier in [5_000, 7_500, 10_000, 15_000, 20_000, 25_000, 30_000, 100_000] {
+            let decay = e
+                .compute_decay_with_conduct(value, conc, blocks, multiplier)
+                .unwrap();
+            let effective = value.saturating_sub(decay);
+            assert_eq!(
+                effective + decay, value,
+                "invariant broken for multiplier {multiplier}"
+            );
+        }
+    }
+
+    #[test]
+    fn conduct_zero_blocks_is_zero() {
+        let e = engine();
+        let conducted = e
+            .compute_decay_with_conduct(1000 * COIN, DECAY_C_THRESHOLD_PPB + 500_000, 0, 15_000)
+            .unwrap();
+        assert_eq!(conducted, 0);
+    }
+
+    #[test]
+    fn conduct_below_threshold_is_zero() {
+        let e = engine();
+        let conducted = e
+            .compute_decay_with_conduct(1000 * COIN, 0, 100, 15_000)
+            .unwrap();
+        assert_eq!(conducted, 0);
+    }
+
     // --- proptest ---
 
     proptest! {
@@ -461,6 +619,30 @@ mod tests {
             let e = engine();
             let release = e.decay_pool_release(balance).unwrap();
             prop_assert!(release <= balance);
+        }
+
+        #[test]
+        fn conduct_decay_never_exceeds_nominal(
+            value in 1u64..=MAX_SUPPLY,
+            conc in 0u64..=CONCENTRATION_PRECISION,
+            blocks in 0u64..=1_000_000,
+            multiplier in 5_000u64..=100_000u64,
+        ) {
+            let e = engine();
+            let decay = e.compute_decay_with_conduct(value, conc, blocks, multiplier).unwrap();
+            prop_assert!(decay <= value, "conduct decay {} > nominal {}", decay, value);
+        }
+
+        #[test]
+        fn conduct_higher_multiplier_more_decay(
+            value in 1u64..=(MAX_SUPPLY / 100),
+            conc in (DECAY_C_THRESHOLD_PPB + 100_000)..CONCENTRATION_PRECISION,
+            blocks in 1u64..=1_000u64,
+        ) {
+            let e = engine();
+            let d_lo = e.compute_decay_with_conduct(value, conc, blocks, 5_000).unwrap();
+            let d_hi = e.compute_decay_with_conduct(value, conc, blocks, 20_000).unwrap();
+            prop_assert!(d_hi >= d_lo, "higher multiplier should decay >= lower: {} >= {}", d_hi, d_lo);
         }
     }
 }

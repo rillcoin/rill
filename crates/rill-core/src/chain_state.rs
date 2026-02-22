@@ -362,7 +362,7 @@ mod tests {
     use crate::constants::COIN;
     use crate::error::ChainStateError;
     use crate::merkle;
-    use crate::types::{TxInput, TxOutput};
+    use crate::types::{TxInput, TxOutput, TxType};
 
     // ------------------------------------------------------------------
     // Helpers
@@ -372,6 +372,7 @@ mod tests {
     fn make_coinbase(value: u64, pubkey_hash: Hash256) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -392,6 +393,7 @@ mod tests {
     fn make_coinbase_unique(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: height.to_le_bytes().to_vec(),
@@ -409,6 +411,7 @@ mod tests {
     fn make_tx(outpoints: &[OutPoint], output_value: u64, pubkey_hash: Hash256) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: outpoints.iter().map(|op| TxInput {
                 previous_output: op.clone(),
                 signature: vec![0; 64],
@@ -429,6 +432,7 @@ mod tests {
     ) -> Transaction {
         Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: outpoints.iter().map(|op| TxInput {
                 previous_output: op.clone(),
                 signature: vec![0; 64],
@@ -702,6 +706,7 @@ mod tests {
         let mut store = MemoryChainStore::new();
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],
@@ -1252,6 +1257,7 @@ mod tests {
         // Block 0: coinbase with 2 outputs.
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: vec![],

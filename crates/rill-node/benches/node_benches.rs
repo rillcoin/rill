@@ -7,7 +7,7 @@ use tempfile::TempDir;
 
 use rill_core::chain_state::ChainStore;
 use rill_core::types::{
-    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput,
+    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType,
 };
 use rill_core::{genesis, merkle, reward};
 
@@ -21,6 +21,7 @@ fn build_block(store: &RocksStore, height: u64) -> Block {
     let sig = height.to_le_bytes().to_vec();
     let coinbase = Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: sig,

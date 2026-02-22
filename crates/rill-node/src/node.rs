@@ -34,6 +34,7 @@ use tokio::sync::{broadcast, mpsc};
 use tracing::{debug, info, info_span, warn};
 
 use rill_consensus::engine::ConsensusEngine;
+use rill_core::agent::AgentWalletState;
 use rill_core::chain_state::ChainStore;
 use rill_core::error::{RillError, TransactionError};
 use rill_core::mempool::Mempool;
@@ -333,6 +334,11 @@ impl Node {
     /// relay is suppressed to reduce overhead while catching up.
     pub fn is_ibd(&self) -> bool {
         self.is_ibd.load(Ordering::Relaxed)
+    }
+
+    /// Look up an agent wallet's state by pubkey hash.
+    pub fn get_agent_wallet(&self, pubkey_hash: &Hash256) -> Result<Option<AgentWalletState>, RillError> {
+        self.storage.read().get_agent_wallet(pubkey_hash)
     }
 
     /// Process and connect a new block.
@@ -1228,6 +1234,7 @@ mod tests {
     use super::*;
     use rill_consensus::engine::mine_block;
     use rill_core::constants::BLOCK_TIME_SECS;
+    use rill_core::types::TxType;
     use rill_core::genesis;
 
     /// Create a test node backed by a temp directory, without network.
@@ -1776,6 +1783,7 @@ mod tests {
 
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: sig,
@@ -2189,6 +2197,7 @@ mod tests {
         let fake_txid = Hash256([0xAB; 32]);
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint { txid: fake_txid, index: 0 },
                 signature: vec![1, 2, 3],
@@ -2246,6 +2255,7 @@ mod tests {
         // Build a tx spending block 2's coinbase — block 2 is not connected yet.
         let spend_tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: b2_cb_outpoint,
                 signature: vec![0xDE, 0xAD],
@@ -2293,6 +2303,7 @@ mod tests {
             let fake_txid = Hash256([(i & 0xFF) as u8; 32]);
             let tx = Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: OutPoint { txid: fake_txid, index: i as u64 },
                     signature: vec![i as u8],
@@ -2312,6 +2323,7 @@ mod tests {
         let extra_txid = Hash256([0xFF; 32]);
         let extra_tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint { txid: extra_txid, index: 0 },
                 signature: vec![0xFF],
@@ -2340,6 +2352,7 @@ mod tests {
             let fake_txid = Hash256([i; 32]);
             let tx = Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![TxInput {
                     previous_output: OutPoint { txid: fake_txid, index: 0 },
                     signature: vec![i],
@@ -2381,6 +2394,7 @@ mod tests {
         // A transaction with empty inputs is structurally invalid.
         let bad_tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![TxOutput {
                 value: 1_000,

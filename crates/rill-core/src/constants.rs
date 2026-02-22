@@ -221,6 +221,32 @@ pub const MAX_MESSAGE_SIZE: usize = 2_097_152; // 2 MiB
 /// one-line change.
 pub const CHECKPOINTS: &[(u64, [u8; 32])] = &[];
 
+// --- Proof of Conduct ---
+
+/// Maximum conduct score (best behavior).
+pub const CONDUCT_SCORE_MAX: u16 = 1000;
+
+/// Default conduct score for newly registered agent wallets.
+pub const CONDUCT_SCORE_DEFAULT: u16 = 500;
+
+/// Default conduct multiplier for new agents (1.5× in basis points).
+pub const CONDUCT_MULTIPLIER_DEFAULT_BPS: u64 = 15_000;
+
+/// Standard wallet multiplier (1.0× — no conduct adjustment).
+pub const CONDUCT_MULTIPLIER_STANDARD_BPS: u64 = 10_000;
+
+/// Number of blocks in a conduct evaluation period (~1 day at 60s blocks).
+pub const CONDUCT_PERIOD_BLOCKS: u64 = 1_440;
+
+/// Maximum number of vouchers an agent wallet can have.
+pub const MAX_VOUCHERS: usize = 10;
+
+/// Maximum number of other agents a single agent can vouch for.
+pub const MAX_VOUCH_TARGETS: usize = 5;
+
+/// Stake required to register as an agent wallet.
+pub const AGENT_REGISTRATION_STAKE: u64 = 50 * COIN;
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -93,6 +93,25 @@ pub trait DecayCalculator: Send + Sync {
             .ok_or(DecayError::ArithmeticOverflow)
     }
 
+    /// Total decay with conduct multiplier applied to the base rate.
+    ///
+    /// `conduct_multiplier_bps` is the agent's multiplier in basis points
+    /// (10,000 = 1.0×). Standard wallets pass `BPS_PRECISION` (10,000).
+    /// Agent wallets pass their `AgentWalletState::conduct_multiplier_bps`.
+    ///
+    /// Default implementation ignores the multiplier and delegates to
+    /// [`compute_decay`](Self::compute_decay).
+    fn compute_decay_with_conduct(
+        &self,
+        nominal_value: u64,
+        concentration_ppb: u64,
+        blocks_held: u64,
+        conduct_multiplier_bps: u64,
+    ) -> Result<u64, DecayError> {
+        let _ = conduct_multiplier_bps;
+        self.compute_decay(nominal_value, concentration_ppb, blocks_held)
+    }
+
     /// Amount released from the decay pool to miners for the next block.
     ///
     /// `pool_balance` is the current decay pool balance in rills.
@@ -166,7 +185,7 @@ pub trait NetworkService: Send + Sync {
 mod tests {
     use super::*;
     use crate::constants;
-    use crate::types::TxOutput;
+    use crate::types::{TxOutput, TxType};
     use std::collections::HashMap;
 
     // ------------------------------------------------------------------
@@ -299,6 +318,7 @@ mod tests {
         ) -> Result<Block, BlockError> {
             let coinbase = Transaction {
                 version: 1,
+                tx_type: TxType::default(),
                 inputs: vec![crate::types::TxInput {
                     previous_output: OutPoint::null(),
                     signature: vec![],
@@ -498,6 +518,7 @@ mod tests {
         let cs = MockChainState::new();
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![crate::types::TxInput {
                 previous_output: OutPoint { txid: Hash256([0xFF; 32]), index: 0 },
                 signature: vec![0; 64],
@@ -515,6 +536,7 @@ mod tests {
         let cs = MockChainState::new();
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![],
             lock_time: 0,
@@ -736,6 +758,7 @@ mod tests {
         let ns = MockNetworkService::new(2);
         let tx = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![],
             outputs: vec![],
             lock_time: 0,

@@ -14,7 +14,7 @@ use rill_core::constants::{
 use rill_core::error::{DecayError, RillError, TransactionError};
 use rill_core::traits::{BlockProducer, ChainState, DecayCalculator};
 use rill_core::types::{
-    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, UtxoEntry,
+    Block, BlockHeader, Hash256, OutPoint, Transaction, TxInput, TxOutput, TxType, UtxoEntry,
 };
 use rill_core::{genesis, merkle, reward};
 
@@ -51,6 +51,7 @@ impl MockChainState {
         let sig = height.to_le_bytes().to_vec();
         let coinbase = Transaction {
             version: 1,
+            tx_type: TxType::default(),
             inputs: vec![TxInput {
                 previous_output: OutPoint::null(),
                 signature: sig,

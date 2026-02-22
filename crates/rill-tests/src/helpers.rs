@@ -15,6 +15,7 @@ pub fn pkh(seed: u8) -> Hash256 {
 pub fn make_coinbase(value: u64, pubkey_hash: Hash256, height: u64) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: vec![TxInput {
             previous_output: OutPoint::null(),
             signature: height.to_le_bytes().to_vec(),
@@ -35,6 +36,7 @@ pub fn make_tx(
 ) -> Transaction {
     Transaction {
         version: 1,
+        tx_type: TxType::default(),
         inputs: inputs
             .into_iter()
             .map(|op| TxInput {
