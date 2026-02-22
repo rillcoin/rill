@@ -36,6 +36,10 @@ pub struct AgentWalletState {
     pub undertow_expires_at: u64,
     /// Rolling velocity statistics for Undertow detection and scoring.
     pub velocity_baseline: VelocityBaseline,
+    /// Pubkey hashes of agents this wallet vouches for (max `MAX_VOUCH_TARGETS`).
+    pub vouch_targets: Vec<Hash256>,
+    /// Pubkey hashes of agents vouching for this wallet (max `MAX_VOUCHERS`).
+    pub vouchers: Vec<Hash256>,
 }
 
 /// RPC response type summarizing an agent's conduct profile.
@@ -79,6 +83,8 @@ mod tests {
             undertow_active: false,
             undertow_expires_at: 0,
             velocity_baseline: VelocityBaseline::new(),
+            vouch_targets: Vec::new(),
+            vouchers: Vec::new(),
         };
         let encoded = bincode::encode_to_vec(&state, bincode::config::standard()).unwrap();
         let (decoded, _): (AgentWalletState, usize) =

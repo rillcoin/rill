@@ -38,6 +38,20 @@ pub enum TxType {
     Standard,
     /// Agent wallet registration (requires stake output).
     AgentRegister,
+    /// Undertow dispute flag (does not deactivate Undertow, flags for review).
+    ///
+    /// The dispute is visible on-chain; no state change at consensus level for v1.
+    UndertowDispute,
+    /// Vouch for another agent wallet.
+    ///
+    /// The first output's `pubkey_hash` identifies the agent being vouched for.
+    /// The first input's spent UTXO identifies the vouching agent.
+    VouchFor,
+    /// Withdraw a vouch for another agent wallet.
+    ///
+    /// Same structure as [`VouchFor`](TxType::VouchFor) but removes the
+    /// existing vouch relationship.
+    VouchWithdraw,
 }
 
 /// A 32-byte hash value.

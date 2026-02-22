@@ -14,10 +14,13 @@ use rocksdb::{ColumnFamilyDescriptor, Options, SliceTransform, WriteBatch, DB};
 use rill_core::agent::AgentWalletState;
 use rill_core::chain_state::{ChainStore, ConnectBlockResult, DisconnectBlockResult};
 use rill_core::conduct::{self, VelocityBaseline};
-use rill_core::constants::CONDUCT_PERIOD_BLOCKS;
+use rill_core::constants::{
+    CONDUCT_PERIOD_BLOCKS, MAX_VOUCHERS, MAX_VOUCH_TARGETS, UNDERTOW_DURATION_BLOCKS,
+    UNDERTOW_MULTIPLIER_BPS, VOUCH_MIN_SCORE,
+};
 use rill_core::error::{ChainStateError, RillError};
 use rill_core::genesis;
-use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, UtxoEntry};
+use rill_core::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, TxType, UtxoEntry};
 use rill_decay::cluster::determine_output_cluster;
 
 // --- Column family names ---
@@ -495,7 +498,23 @@ impl RocksStore {
                 .unwrap_or(0);
 
             // Push the new epoch volume into the rolling baseline.
+            // Note: push_epoch is called BEFORE is_anomalous so the baseline
+            // already contains the current epoch when we check for anomalies.
             state.velocity_baseline.push_epoch(epoch_volume);
+
+            // --- Undertow activation check ---
+            // Check for anomalous velocity before we compute the new score.
+            if state.velocity_baseline.is_anomalous(epoch_volume) && !state.undertow_active {
+                state.undertow_active = true;
+                state.undertow_expires_at = height + UNDERTOW_DURATION_BLOCKS;
+                state.conduct_multiplier_bps = UNDERTOW_MULTIPLIER_BPS;
+                tracing::warn!(
+                    pubkey_hash = %state.pubkey_hash,
+                    height,
+                    epoch_volume,
+                    "Undertow activated for agent"
+                );
+            }
 
             // Compute wallet age in epochs.
             let age_in_epochs = (height.saturating_sub(state.registered_at_block))
@@ -510,11 +529,38 @@ impl RocksStore {
             let raw_score =
                 conduct::compute_raw_score(500, 500, velocity_anomaly, 500, wallet_age);
 
-            // Apply exponential smoothing to avoid sudden score jumps.
-            let new_score = conduct::smooth_score(state.conduct_score, raw_score);
+            // --- Vouch-adjusted smoothing ---
+            // If any voucher has a score >= VOUCH_MIN_SCORE, use a faster
+            // 80/20 smoothing to help the vouched agent recover more quickly.
+            let has_quality_voucher = state.vouchers.iter().any(|voucher_pkh| {
+                self.get_agent_wallet(voucher_pkh)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|v| v.conduct_score >= VOUCH_MIN_SCORE)
+            });
 
-            // Derive the updated decay multiplier from the new score.
-            let new_multiplier_bps = conduct::score_to_multiplier_bps(new_score);
+            let new_score = if has_quality_voucher {
+                // Faster convergence: 80/20 instead of 85/15.
+                let s = (state.conduct_score as u32 * 80 + raw_score as u32 * 20) / 100;
+                s.min(1000) as u16
+            } else {
+                conduct::smooth_score(state.conduct_score, raw_score)
+            };
+
+            // --- Undertow expiry check ---
+            // After computing the new score, check if the Undertow penalty has expired.
+            let new_multiplier_bps = if state.undertow_active && height >= state.undertow_expires_at
+            {
+                state.undertow_active = false;
+                state.undertow_expires_at = 0;
+                // Recalculate multiplier from the freshly computed score.
+                conduct::score_to_multiplier_bps(new_score)
+            } else if state.undertow_active {
+                // Still active — keep the penalty multiplier regardless of score.
+                UNDERTOW_MULTIPLIER_BPS
+            } else {
+                conduct::score_to_multiplier_bps(new_score)
+            };
 
             tracing::debug!(
                 pubkey_hash = %state.pubkey_hash,
@@ -526,11 +572,32 @@ impl RocksStore {
                 old_score = state.conduct_score,
                 new_score,
                 new_multiplier_bps,
+                undertow_active = state.undertow_active,
+                has_quality_voucher,
                 "conduct epoch update"
             );
 
             state.conduct_score = new_score;
             state.conduct_multiplier_bps = new_multiplier_bps;
+
+            // --- Voucher penalty propagation ---
+            // If any vouch target has a conduct score below 400, increase the
+            // voucher's multiplier proportionally to the deficit.
+            let vouch_targets = state.vouch_targets.clone();
+            for target_pkh in &vouch_targets {
+                if let Some(target) = self.get_agent_wallet(target_pkh)? {
+                    if target.conduct_score < 400 {
+                        let deficit = 400u16.saturating_sub(target.conduct_score);
+                        // +2500 BPS per 50 points below 400, capped at Undertow level.
+                        let penalty_units = deficit / 50;
+                        let penalty_bps = penalty_units as u64 * 2_500;
+                        state.conduct_multiplier_bps = state
+                            .conduct_multiplier_bps
+                            .saturating_add(penalty_bps)
+                            .min(UNDERTOW_MULTIPLIER_BPS);
+                    }
+                }
+            }
 
             let state_bytes =
                 bincode::encode_to_vec(&state, bincode::config::standard())
@@ -823,32 +890,141 @@ impl ChainStore for RocksStore {
             }
         }
 
-        // Process AgentRegister transactions.
+        // Process special transaction types: AgentRegister, VouchFor, VouchWithdraw,
+        // UndertowDispute.
         let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
         for tx in &block.transactions {
-            if tx.tx_type == rill_core::types::TxType::AgentRegister {
-                // The first output's pubkey_hash is the registrant.
-                if let Some(first_output) = tx.outputs.first() {
-                    if first_output.value >= rill_core::constants::AGENT_REGISTRATION_STAKE {
-                        // Check not already registered.
-                        if !self.is_agent_wallet(&first_output.pubkey_hash)? {
-                            let state = AgentWalletState {
-                                pubkey_hash: first_output.pubkey_hash,
-                                registered_at_block: height,
-                                stake_balance: first_output.value,
-                                stake_locked_until: height + rill_core::constants::CONDUCT_PERIOD_BLOCKS,
-                                conduct_score: rill_core::constants::CONDUCT_SCORE_DEFAULT,
-                                conduct_multiplier_bps: rill_core::constants::CONDUCT_MULTIPLIER_DEFAULT_BPS,
-                                undertow_active: false,
-                                undertow_expires_at: 0,
-                                velocity_baseline: VelocityBaseline::new(),
-                            };
-                            let state_bytes = bincode::encode_to_vec(&state, bincode::config::standard())
-                                .map_err(|e| RillError::Storage(e.to_string()))?;
-                            batch.put_cf(cf_agents, state.pubkey_hash.as_bytes(), &state_bytes);
+            match tx.tx_type {
+                TxType::AgentRegister => {
+                    // The first output's pubkey_hash is the registrant.
+                    if let Some(first_output) = tx.outputs.first() {
+                        if first_output.value >= rill_core::constants::AGENT_REGISTRATION_STAKE {
+                            // Check not already registered.
+                            if !self.is_agent_wallet(&first_output.pubkey_hash)? {
+                                let state = AgentWalletState {
+                                    pubkey_hash: first_output.pubkey_hash,
+                                    registered_at_block: height,
+                                    stake_balance: first_output.value,
+                                    stake_locked_until: height
+                                        + rill_core::constants::CONDUCT_PERIOD_BLOCKS,
+                                    conduct_score: rill_core::constants::CONDUCT_SCORE_DEFAULT,
+                                    conduct_multiplier_bps:
+                                        rill_core::constants::CONDUCT_MULTIPLIER_DEFAULT_BPS,
+                                    undertow_active: false,
+                                    undertow_expires_at: 0,
+                                    velocity_baseline: VelocityBaseline::new(),
+                                    vouch_targets: Vec::new(),
+                                    vouchers: Vec::new(),
+                                };
+                                let state_bytes =
+                                    bincode::encode_to_vec(&state, bincode::config::standard())
+                                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                                batch.put_cf(
+                                    cf_agents,
+                                    state.pubkey_hash.as_bytes(),
+                                    &state_bytes,
+                                );
+                            }
                         }
                     }
                 }
+
+                TxType::UndertowDispute => {
+                    // The dispute is an on-chain record only; no state mutation in v1.
+                    // The disputing agent is identifiable via the first input's pubkey,
+                    // and the record is permanently visible in the block explorer.
+                }
+
+                TxType::VouchFor => {
+                    // First output's pubkey_hash = agent being vouched for (target).
+                    // First input's spent UTXO = the vouching agent (source).
+                    if let (Some(first_output), Some(first_input_utxo)) = (
+                        tx.outputs.first(),
+                        tx.inputs.first().and_then(|inp| {
+                            undo.spent_utxos
+                                .iter()
+                                .find(|(op, _)| op == &inp.previous_output)
+                                .map(|(_, entry)| entry)
+                        }),
+                    ) {
+                        let voucher_pkh = first_input_utxo.output.pubkey_hash;
+                        let target_pkh = first_output.pubkey_hash;
+
+                        if let (Some(mut voucher_state), Some(mut target_state)) = (
+                            self.get_agent_wallet(&voucher_pkh)?,
+                            self.get_agent_wallet(&target_pkh)?,
+                        ) {
+                            if voucher_state.conduct_score >= VOUCH_MIN_SCORE
+                                && voucher_state.vouch_targets.len() < MAX_VOUCH_TARGETS
+                                && target_state.vouchers.len() < MAX_VOUCHERS
+                                && !voucher_state.vouch_targets.contains(&target_pkh)
+                            {
+                                voucher_state.vouch_targets.push(target_pkh);
+                                target_state.vouchers.push(voucher_pkh);
+
+                                let voucher_bytes = bincode::encode_to_vec(
+                                    &voucher_state,
+                                    bincode::config::standard(),
+                                )
+                                .map_err(|e| RillError::Storage(e.to_string()))?;
+                                let target_bytes = bincode::encode_to_vec(
+                                    &target_state,
+                                    bincode::config::standard(),
+                                )
+                                .map_err(|e| RillError::Storage(e.to_string()))?;
+                                batch.put_cf(
+                                    cf_agents,
+                                    voucher_pkh.as_bytes(),
+                                    &voucher_bytes,
+                                );
+                                batch.put_cf(
+                                    cf_agents,
+                                    target_pkh.as_bytes(),
+                                    &target_bytes,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                TxType::VouchWithdraw => {
+                    // Same structure as VouchFor but removes the vouch relationship.
+                    if let (Some(first_output), Some(first_input_utxo)) = (
+                        tx.outputs.first(),
+                        tx.inputs.first().and_then(|inp| {
+                            undo.spent_utxos
+                                .iter()
+                                .find(|(op, _)| op == &inp.previous_output)
+                                .map(|(_, entry)| entry)
+                        }),
+                    ) {
+                        let voucher_pkh = first_input_utxo.output.pubkey_hash;
+                        let target_pkh = first_output.pubkey_hash;
+
+                        if let (Some(mut voucher_state), Some(mut target_state)) = (
+                            self.get_agent_wallet(&voucher_pkh)?,
+                            self.get_agent_wallet(&target_pkh)?,
+                        ) {
+                            voucher_state.vouch_targets.retain(|h| h != &target_pkh);
+                            target_state.vouchers.retain(|h| h != &voucher_pkh);
+
+                            let voucher_bytes = bincode::encode_to_vec(
+                                &voucher_state,
+                                bincode::config::standard(),
+                            )
+                            .map_err(|e| RillError::Storage(e.to_string()))?;
+                            let target_bytes = bincode::encode_to_vec(
+                                &target_state,
+                                bincode::config::standard(),
+                            )
+                            .map_err(|e| RillError::Storage(e.to_string()))?;
+                            batch.put_cf(cf_agents, voucher_pkh.as_bytes(), &voucher_bytes);
+                            batch.put_cf(cf_agents, target_pkh.as_bytes(), &target_bytes);
+                        }
+                    }
+                }
+
+                TxType::Standard => {}
             }
         }
 

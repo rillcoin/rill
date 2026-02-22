@@ -244,6 +244,18 @@ pub const MAX_VOUCHERS: usize = 10;
 /// Maximum number of other agents a single agent can vouch for.
 pub const MAX_VOUCH_TARGETS: usize = 5;
 
+/// Conduct multiplier BPS when Undertow is active (10.0×).
+pub const UNDERTOW_MULTIPLIER_BPS: u64 = 100_000;
+
+/// Duration of an Undertow penalty in blocks (~24 hours at 60-second blocks).
+pub const UNDERTOW_DURATION_BLOCKS: u64 = CONDUCT_PERIOD_BLOCKS; // 1,440
+
+/// Minimum conduct score required to vouch for another agent.
+pub const VOUCH_MIN_SCORE: u16 = 700;
+
+/// Cooldown period after un-vouching before multiplier normalizes (in epochs).
+pub const VOUCH_COOLDOWN_EPOCHS: u64 = 10;
+
 /// Stake required to register as an agent wallet.
 pub const AGENT_REGISTRATION_STAKE: u64 = 50 * COIN;
 
