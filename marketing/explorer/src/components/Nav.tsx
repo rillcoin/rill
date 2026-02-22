@@ -56,13 +56,22 @@ export default function Nav({ onSearch }: { onSearch?: (q: string) => void }) {
         />
       </form>
 
-      <a
-        href="https://rillcoin.com"
-        className="hidden md:inline font-sans text-[13px] transition-opacity hover:opacity-70"
-        style={{ color: "var(--text-dim)" }}
-      >
-        ← rillcoin.com
-      </a>
+      <div className="hidden md:flex items-center gap-5">
+        <Link
+          href="/agents"
+          className="font-sans text-[13px] transition-opacity hover:opacity-70"
+          style={{ color: "var(--text-dim)" }}
+        >
+          Agents
+        </Link>
+        <a
+          href="https://rillcoin.com"
+          className="font-sans text-[13px] transition-opacity hover:opacity-70"
+          style={{ color: "var(--text-dim)" }}
+        >
+          ← rillcoin.com
+        </a>
+      </div>
     </nav>
   );
 }

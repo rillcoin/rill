@@ -145,6 +145,13 @@ function AddressDetailInner() {
         >
           {addr}
         </p>
+        <a
+          href={`/agents?addr=${encodeURIComponent(addr)}`}
+          className="inline-block font-mono text-[13px] mt-2 transition-opacity hover:opacity-70"
+          style={{ color: "var(--blue-400)" }}
+        >
+          View Conduct Profile →
+        </a>
       </div>
 
       {/* Balance card */}
