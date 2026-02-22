@@ -19,6 +19,7 @@ const NAV_SECTIONS = [
     items: [
       { label: "Architecture", href: "/protocol" },
       { label: "Decay Mechanics", href: "/decay" },
+      { label: "Proof of Conduct", href: "/conduct" },
       { label: "Mining", href: "/mining" },
     ],
   },

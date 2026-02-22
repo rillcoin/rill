@@ -455,11 +455,11 @@ where DECAY_POOL_RELEASE_BPS = 100  (1% per block)`}
           Architecture
         </Link>
         <Link
-          href="/mining"
+          href="/conduct"
           className="flex items-center gap-2 text-sm font-medium transition-colors"
           style={{ color: "var(--cyan-400)" }}
         >
-          Mining Guide
+          Proof of Conduct
           <ArrowRight size={14} />
         </Link>
       </div>

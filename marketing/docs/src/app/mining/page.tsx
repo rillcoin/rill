@@ -324,12 +324,12 @@ rill-miner \\
         style={{ borderTop: "1px solid var(--border-subtle)" }}
       >
         <Link
-          href="/decay"
+          href="/conduct"
           className="flex items-center gap-2 text-sm transition-colors"
           style={{ color: "var(--text-muted)" }}
         >
           <ArrowLeft size={14} />
-          Decay Mechanics
+          Proof of Conduct
         </Link>
         <Link
           href="/cli"
