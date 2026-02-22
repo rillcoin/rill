@@ -2,6 +2,72 @@
 
 ## [Unreleased]
 
+### 2026-02-22 - Proof of Conduct (Phases 1-4)
+
+**AI agents now have on-chain identity and economic consequences on RillCoin.**
+
+#### Phase 1 — Foundation
+- `WalletType` (Standard/Agent) and `TxType` (Standard/AgentRegister) enums
+- `tx_type` field added to `Transaction` (included in txid hash — chain reset required)
+- `AgentWalletState` and `ConductProfile` types in new `agent.rs` module
+- `AgentError` variants and PoC constants (scores, multipliers, stake amounts)
+- `compute_decay_with_conduct()` method on `DecayCalculator` trait with conduct multiplier
+- `CF_AGENT_WALLETS` RocksDB column family with CRUD methods
+- AgentRegister transaction processing in `connect_block`
+- `getAgentConductProfile` RPC endpoint
+- `register_as_agent()` wallet method
+
+#### Phase 2 — Conduct Score Engine
+- `conduct.rs` module: pure integer-only scoring functions
+- `VelocityBaseline`: rolling 90-epoch velocity tracker with O(1) mean/variance
+- `wallet_age_score` (logarithmic), `velocity_anomaly_score` (3-sigma detection)
+- 7-bracket score-to-multiplier BPS lookup table
+- EMA smoothing (85/15 old/new) preventing single-epoch gaming
+- Epoch processing at every 1,440 blocks — recomputes all agent scores atomically
+- 44 unit tests covering all bracket boundaries and edge cases
+
+#### Phase 3 — Undertow Circuit Breaker
+- Auto-activates 10x decay multiplier when velocity exceeds 3 standard deviations
+- 24-hour duration, auto-expires at next epoch boundary
+- `UndertowDispute` transaction type for on-chain flagging
+
+#### Phase 4 — Vouching System
+- `VouchFor` / `VouchWithdraw` transaction types
+- Score >= 700 required to vouch, caps at 5 targets / 10 vouchers
+- Vouched agents get faster EMA smoothing (80/20 vs 85/15)
+- Voucher penalty propagation: +2,500 BPS per 50 points of target deficit below 400
+
+#### Agent Contracts
+- `AgentContract` struct with Open/Fulfilled/Expired/Disputed status
+- `PeerReview` struct for post-contract scoring (1-10 scale)
+- `ContractCreate`, `ContractFulfil`, `ContractDispute`, `PeerReview` tx types
+- `CF_AGENT_CONTRACTS` column family
+- `contract_fulfilment_score`, `dispute_rate_score`, `peer_review_score` functions
+- Epoch processing now uses all 5 real signal values
+
+#### CLI
+- `rill-cli register-agent`: constructs and broadcasts AgentRegister transaction
+- `rill-cli agent-profile <address>`: queries conduct profile via RPC
+
+#### Infrastructure
+- Persistent libp2p identity keys (`node.key`) for stable peer IDs across restarts
+- Testnet reset and redeployed with PoC-enabled binary
+- P2P connectivity fixed (full multiaddr with `/p2p/<peer_id>` required)
+
+#### Website & Documentation
+- Landing page: PoC elevated to position #2 (immediately after hero)
+- Competitive comparison table (ETH ERC-8004, Coinbase, RillCoin)
+- "0 agents have financial primitives / 1 blockchain enforces trust" stat callout
+- Block explorer `/agents` page with conduct score viewer
+- Full `/conduct` docs page
+- Discord announcements posted to #announcements and #dev-updates
+- X thread drafted (11 tweets)
+
+#### Stats
+- 917+ tests passing, 0 failures, 0 clippy warnings
+- ~4,000 lines of new code across 40+ files
+- Transaction serialization changed — testnet chain reset required
+
 ### 2026-02-21 - Public Release & Security Hardening
 
 **Repository is now public at https://github.com/rillcoin/rill**
