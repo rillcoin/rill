@@ -1,6 +1,7 @@
 //! Network configuration for the Rill P2P layer.
 
 use rill_core::constants::DEFAULT_P2P_PORT;
+use std::path::PathBuf;
 use std::time::Duration;
 
 /// Configuration for the P2P network node.
@@ -20,6 +21,15 @@ pub struct NetworkConfig {
     pub max_peers: usize,
     /// Timeout for outbound dial attempts.
     pub dial_timeout: Duration,
+    /// Path to the node's Ed25519 identity key file.
+    ///
+    /// If the file exists, the keypair is loaded from it so the peer ID stays
+    /// stable across restarts.  If the file does not exist, a new keypair is
+    /// generated and written to this path.
+    ///
+    /// When `None`, a fresh keypair is generated on every start and the peer
+    /// ID will change between restarts (useful for ephemeral test nodes).
+    pub node_key_path: Option<PathBuf>,
 }
 
 impl Default for NetworkConfig {
@@ -32,6 +42,7 @@ impl Default for NetworkConfig {
             gossipsub_heartbeat: Duration::from_secs(1),
             max_peers: 50,
             dial_timeout: Duration::from_secs(10),
+            node_key_path: None,
         }
     }
 }

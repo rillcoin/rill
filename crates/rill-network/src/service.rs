@@ -109,6 +109,71 @@ impl std::fmt::Debug for NetworkNode {
     }
 }
 
+/// Load an Ed25519 keypair from a file, or generate and save a new one.
+///
+/// The file stores the raw 32-byte Ed25519 secret key (seed).  On load,
+/// the keypair is reconstructed deterministically from that seed, so the
+/// peer ID remains stable across node restarts.
+///
+/// If the file does not exist, a fresh keypair is generated, the 32-byte
+/// secret is written to the file, and the keypair is returned.  The file
+/// is created with mode `0o600` on Unix so that only the owning user can
+/// read it.
+fn load_or_generate_keypair(path: &std::path::Path) -> Result<Keypair, String> {
+    use std::io::{Read, Write};
+
+    if path.exists() {
+        let mut file = std::fs::File::open(path)
+            .map_err(|e| format!("failed to open node key file '{}': {e}", path.display()))?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)
+            .map_err(|e| format!("failed to read node key file '{}': {e}", path.display()))?;
+        // ed25519_from_bytes expects the 32-byte secret (seed).
+        let keypair = Keypair::ed25519_from_bytes(bytes)
+            .map_err(|e| format!("invalid node key in '{}': {e}", path.display()))?;
+        info!(path = %path.display(), "loaded existing node identity key");
+        Ok(keypair)
+    } else {
+        let keypair = Keypair::generate_ed25519();
+
+        // Ensure the parent directory exists.
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                format!(
+                    "failed to create directory '{}': {e}",
+                    parent.display()
+                )
+            })?;
+        }
+
+        // Extract the 32-byte secret key seed.
+        // SecretKey implements AsRef<[u8]>, giving us the raw seed bytes.
+        let ed_keypair = keypair
+            .clone()
+            .try_into_ed25519()
+            .map_err(|e| format!("keypair is not Ed25519: {e}"))?;
+        let secret_bytes: Vec<u8> = ed_keypair.secret().as_ref().to_vec(); // 32 bytes
+
+        let mut file = std::fs::File::create(path).map_err(|e| {
+            format!("failed to create node key file '{}': {e}", path.display())
+        })?;
+        file.write_all(&secret_bytes).map_err(|e| {
+            format!("failed to write node key file '{}': {e}", path.display())
+        })?;
+
+        // Restrict permissions to owner-read/write only (Unix).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| format!("failed to set permissions on '{}': {e}", path.display()))?;
+        }
+
+        info!(path = %path.display(), "generated new node identity key");
+        Ok(keypair)
+    }
+}
+
 impl NetworkNode {
     /// Start the network node, returning a handle, event receiver, and query receiver.
     ///
@@ -119,7 +184,10 @@ impl NetworkNode {
     pub async fn start(
         config: NetworkConfig,
     ) -> Result<(Self, broadcast::Receiver<NetworkEvent>, mpsc::UnboundedReceiver<StorageQuery>), String> {
-        let keypair = Keypair::generate_ed25519();
+        let keypair = match &config.node_key_path {
+            Some(path) => load_or_generate_keypair(path)?,
+            None => Keypair::generate_ed25519(),
+        };
         let local_peer_id = PeerId::from(keypair.public());
         info!(%local_peer_id, "starting network node");
 

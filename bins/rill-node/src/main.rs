@@ -103,6 +103,7 @@ impl Args {
             listen_port: self.p2p_listen_port,
             bootstrap_peers,
             enable_mdns,
+            node_key_path: Some(data_dir.join("node.key")),
             ..default_network
         };
 
