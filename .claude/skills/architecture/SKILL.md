@@ -39,6 +39,37 @@ Genesis block allocates 5% of max supply to development fund. Vests linearly ove
 `rill1<base58check(sha256(ripemd160(pubkey)))>`
 Human-readable prefix for identification. Double-hash for collision resistance. Base58Check for error detection.
 
+## ADR-011: Proof of Conduct (PoC) — Dynamic Decay for AI Agents
+
+**Status:** Accepted (2026-02-22)
+**Spec:** `PROOF_OF_CONDUCT_SPEC.md` | **Review:** `PROOF_OF_CONDUCT_REVIEW.md`
+
+### Context
+AI agent wallets need on-chain reputation that has economic teeth. Existing solutions (ERC-8004, Coinbase Agentic Wallets) decouple reputation from economics. RillCoin's L1 decay primitive uniquely enables tying conduct directly to wealth erosion.
+
+### Decision
+Adopt Proof of Conduct as a native L1 extension. The concentration decay rate becomes dynamic per agent wallet, controlled by a Conduct Score (0–1000) that derives a Conduct Multiplier applied to the base decay rate.
+
+### Constraints (from technical review)
+1. **Integer-only:** All conduct math uses fixed-point. Multiplier stored as BPS (`u64`), not `f32`. Variance comparison replaces stddev (no sqrt). Smoothing uses `(85 * old + 15 * raw) / 100`.
+2. **Conduct period ≠ halving epoch:** Introduce "conduct period" (~1,440 blocks / 1 day) distinct from halving epoch (210,000 blocks). Conduct scores update per conduct period.
+3. **Typed transactions:** New `TxType` enum on `Transaction` for agent operations (RegisterAgent, AgentContract*, PeerReview, Vouch/Unvouch, UndertowDispute). No backwards-compat concern pre-mainnet.
+4. **Effective rate cap:** `effective_decay_rate` capped at `DECAY_PRECISION` to prevent overflow under Undertow (10× multiplier).
+5. **State storage:** New RocksDB column family `agent_wallets` per ADR-006.
+6. **Bounded collections:** Max 10 vouchers per wallet, max 5 vouch targets. Enforced at block validation.
+
+### Phasing
+- **Phase 1:** WalletType enum, AgentWallet struct, conduct_multiplier_bps integration in decay engine, RegisterAgent tx, RPC query. (Next)
+- **Phase 2:** Conduct score engine, signal collectors, AgentContract type, conduct period processing.
+- **Phase 3:** Undertow circuit breaker with variance-based trigger.
+- **Phase 4:** Guild/vouching system.
+- **Phase 5:** Block explorer integration.
+
+### Trade-offs
+- **Complexity:** 4+ new transaction types, new state, epoch processing extension. Mitigated by phased rollout.
+- **Consensus surface area:** Conduct score is consensus-critical (all nodes must agree). Mitigated by integer-only math + on-chain-only inputs.
+- **Agent wallet overhead:** Additional per-wallet state. Mitigated by bounded fields and minority wallet type.
+
 ## Crate Dependency Graph
 
 ```
