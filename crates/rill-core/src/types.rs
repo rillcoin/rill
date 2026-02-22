@@ -52,6 +52,31 @@ pub enum TxType {
     /// Same structure as [`VouchFor`](TxType::VouchFor) but removes the
     /// existing vouch relationship.
     VouchWithdraw,
+    /// Create an agent contract between two agent wallets.
+    ///
+    /// The first output's `pubkey_hash` identifies the counterparty.
+    /// The first output's `value` is the contract value held in escrow.
+    /// The txid of this transaction becomes the `contract_id`.
+    ContractCreate,
+    /// Fulfil an agent contract.
+    ///
+    /// The `lock_time` field encodes the first 8 bytes of the contract's
+    /// txid as a `u64` (little-endian) for reference. Both parties'
+    /// `contracts_fulfilled` counters are incremented.
+    ContractFulfil,
+    /// Dispute an agent contract.
+    ///
+    /// The `lock_time` field encodes the first 8 bytes of the contract's
+    /// txid as a `u64` (little-endian). Both parties' `contracts_disputed`
+    /// counters are incremented.
+    ContractDispute,
+    /// Submit a peer review for a completed contract.
+    ///
+    /// The first output's `pubkey_hash` identifies the subject being reviewed.
+    /// The `lock_time` field encodes the contract reference. The first input's
+    /// spent UTXO identifies the reviewer agent. Score is encoded in the first
+    /// output's `value` field (1–10).
+    PeerReview,
 }
 
 /// A 32-byte hash value.

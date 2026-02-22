@@ -11,7 +11,7 @@ use std::path::Path;
 
 use rocksdb::{ColumnFamilyDescriptor, Options, SliceTransform, WriteBatch, DB};
 
-use rill_core::agent::AgentWalletState;
+use rill_core::agent::{AgentContract, AgentWalletState, ContractStatus};
 use rill_core::chain_state::{ChainStore, ConnectBlockResult, DisconnectBlockResult};
 use rill_core::conduct::{self, VelocityBaseline};
 use rill_core::constants::{
@@ -34,6 +34,7 @@ const CF_METADATA: &str = "metadata";
 const CF_CLUSTERS: &str = "clusters";
 const CF_ADDRESS_INDEX: &str = "address_index";
 const CF_AGENT_WALLETS: &str = "agent_wallets";
+const CF_AGENT_CONTRACTS: &str = "agent_contracts";
 
 /// All column family names.
 const ALL_CFS: &[&str] = &[
@@ -46,6 +47,7 @@ const ALL_CFS: &[&str] = &[
     CF_CLUSTERS,
     CF_ADDRESS_INDEX,
     CF_AGENT_WALLETS,
+    CF_AGENT_CONTRACTS,
 ];
 
 // --- Metadata keys ---
@@ -455,6 +457,22 @@ impl RocksStore {
             .map_err(|e| RillError::Storage(e.to_string()))
     }
 
+    /// Look up an agent contract by its contract ID (txid of the creating tx).
+    pub fn get_agent_contract(&self, contract_id: &Hash256) -> Result<Option<AgentContract>, RillError> {
+        let cf = self.cf_handle(CF_AGENT_CONTRACTS)?;
+        match self.db.get_cf(&cf, contract_id.as_bytes())
+            .map_err(|e| RillError::Storage(e.to_string()))?
+        {
+            Some(bytes) => {
+                let (contract, _): (AgentContract, _) =
+                    bincode::decode_from_slice(&bytes, bincode::config::standard())
+                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                Ok(Some(contract))
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Process conduct score updates at epoch boundaries.
     ///
     /// Called during `connect_block` when `height` is a non-zero multiple of
@@ -525,9 +543,23 @@ impl RocksStore {
                 conduct::velocity_anomaly_score(&state.velocity_baseline, epoch_volume);
             let wallet_age = conduct::wallet_age_score(age_in_epochs);
 
-            // Compute raw score (neutral 500 for signals not yet implemented).
+            // Compute individual conduct signal scores from real on-chain data.
+            let fulfilment = conduct::contract_fulfilment_score(
+                state.contracts_fulfilled,
+                state.contracts_total,
+            );
+            let dispute = conduct::dispute_rate_score(
+                state.contracts_disputed,
+                state.contracts_total,
+            );
+            let review = conduct::peer_review_score(
+                state.peer_review_sum,
+                state.peer_review_count,
+            );
+
+            // Compute raw score from all five signals.
             let raw_score =
-                conduct::compute_raw_score(500, 500, velocity_anomaly, 500, wallet_age);
+                conduct::compute_raw_score(fulfilment, dispute, velocity_anomaly, review, wallet_age);
 
             // --- Vouch-adjusted smoothing ---
             // If any voucher has a score >= VOUCH_MIN_SCORE, use a faster
@@ -568,6 +600,9 @@ impl RocksStore {
                 epoch_volume,
                 velocity_anomaly,
                 wallet_age,
+                fulfilment,
+                dispute,
+                review,
                 raw_score,
                 old_score = state.conduct_score,
                 new_score,
@@ -915,6 +950,11 @@ impl ChainStore for RocksStore {
                                     velocity_baseline: VelocityBaseline::new(),
                                     vouch_targets: Vec::new(),
                                     vouchers: Vec::new(),
+                                    contracts_total: 0,
+                                    contracts_fulfilled: 0,
+                                    contracts_disputed: 0,
+                                    peer_review_sum: 0,
+                                    peer_review_count: 0,
                                 };
                                 let state_bytes =
                                     bincode::encode_to_vec(&state, bincode::config::standard())
@@ -1020,6 +1060,281 @@ impl ChainStore for RocksStore {
                             .map_err(|e| RillError::Storage(e.to_string()))?;
                             batch.put_cf(cf_agents, voucher_pkh.as_bytes(), &voucher_bytes);
                             batch.put_cf(cf_agents, target_pkh.as_bytes(), &target_bytes);
+                        }
+                    }
+                }
+
+                TxType::ContractCreate => {
+                    // First output's pubkey_hash = counterparty.
+                    // First output's value = contract value in escrow.
+                    // The txid of this transaction becomes the contract_id.
+                    if let Some(first_output) = tx.outputs.first() {
+                        // Derive the contract_id from this transaction's txid.
+                        if let Ok(contract_id) = tx.txid() {
+                            // Determine the initiator from the first input's spent UTXO.
+                            let initiator_pkh = tx.inputs.first().and_then(|inp| {
+                                undo.spent_utxos
+                                    .iter()
+                                    .find(|(op, _)| op == &inp.previous_output)
+                                    .map(|(_, entry)| entry.output.pubkey_hash)
+                            });
+                            if let Some(initiator) = initiator_pkh {
+                                let counterparty = first_output.pubkey_hash;
+                                // Both parties must be registered agents.
+                                if self.is_agent_wallet(&initiator)?
+                                    && self.is_agent_wallet(&counterparty)?
+                                {
+                                    let contract = AgentContract {
+                                        contract_id,
+                                        initiator,
+                                        counterparty,
+                                        created_at_block: height,
+                                        // Expires after one conduct period.
+                                        expires_at_block: height
+                                            + rill_core::constants::CONDUCT_PERIOD_BLOCKS,
+                                        value: first_output.value,
+                                        status: ContractStatus::Open,
+                                    };
+                                    let contract_bytes = bincode::encode_to_vec(
+                                        &contract,
+                                        bincode::config::standard(),
+                                    )
+                                    .map_err(|e| RillError::Storage(e.to_string()))?;
+                                    let cf_contracts = self.cf_handle(CF_AGENT_CONTRACTS)?;
+                                    batch.put_cf(
+                                        cf_contracts,
+                                        contract_id.as_bytes(),
+                                        &contract_bytes,
+                                    );
+
+                                    // Increment contracts_total for both agents.
+                                    if let Some(mut initiator_state) =
+                                        self.get_agent_wallet(&initiator)?
+                                    {
+                                        initiator_state.contracts_total =
+                                            initiator_state.contracts_total.saturating_add(1);
+                                        let bytes = bincode::encode_to_vec(
+                                            &initiator_state,
+                                            bincode::config::standard(),
+                                        )
+                                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                                        let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+                                        batch.put_cf(
+                                            cf_agents,
+                                            initiator.as_bytes(),
+                                            &bytes,
+                                        );
+                                    }
+                                    if let Some(mut counterparty_state) =
+                                        self.get_agent_wallet(&counterparty)?
+                                    {
+                                        counterparty_state.contracts_total =
+                                            counterparty_state.contracts_total.saturating_add(1);
+                                        let bytes = bincode::encode_to_vec(
+                                            &counterparty_state,
+                                            bincode::config::standard(),
+                                        )
+                                        .map_err(|e| RillError::Storage(e.to_string()))?;
+                                        let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+                                        batch.put_cf(
+                                            cf_agents,
+                                            counterparty.as_bytes(),
+                                            &bytes,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                TxType::ContractFulfil => {
+                    // The lock_time field encodes the first 8 bytes of the contract txid
+                    // as a u64 (little-endian). Reconstruct the contract_id prefix for lookup.
+                    // We store contracts by full txid; the lock_time provides a partial
+                    // reference: prefix-scan CF_AGENT_CONTRACTS for contracts whose txid
+                    // starts with these 8 bytes.
+                    //
+                    // For v1 simplicity: treat lock_time as the raw u64 formed from the
+                    // first 8 LE bytes of the contract's txid, and use it to scan for a
+                    // matching open contract where the tx sender is a party.
+                    let contract_ref = tx.lock_time.to_le_bytes();
+                    let cf_contracts = self.cf_handle(CF_AGENT_CONTRACTS)?;
+                    let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+
+                    // Identify the fulfilment sender from the first input's spent UTXO.
+                    let sender_pkh = tx.inputs.first().and_then(|inp| {
+                        undo.spent_utxos
+                            .iter()
+                            .find(|(op, _)| op == &inp.previous_output)
+                            .map(|(_, entry)| entry.output.pubkey_hash)
+                    });
+
+                    if let Some(sender) = sender_pkh {
+                        // Scan for a matching open contract via prefix iteration.
+                        let iter = self
+                            .db
+                            .iterator_cf(&cf_contracts, rocksdb::IteratorMode::Start);
+                        let mut matched_contract: Option<AgentContract> = None;
+                        for item in iter {
+                            let (key_bytes, val_bytes) =
+                                item.map_err(|e| RillError::Storage(e.to_string()))?;
+                            // Check if the first 8 bytes of the key match contract_ref.
+                            if key_bytes.len() >= 8 && key_bytes[..8] == contract_ref {
+                                let (c, _): (AgentContract, _) =
+                                    bincode::decode_from_slice(
+                                        &val_bytes,
+                                        bincode::config::standard(),
+                                    )
+                                    .map_err(|e| RillError::Storage(e.to_string()))?;
+                                if c.status == ContractStatus::Open
+                                    && (c.initiator == sender || c.counterparty == sender)
+                                {
+                                    matched_contract = Some(c);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if let Some(mut contract) = matched_contract {
+                            contract.status = ContractStatus::Fulfilled;
+                            let contract_bytes = bincode::encode_to_vec(
+                                &contract,
+                                bincode::config::standard(),
+                            )
+                            .map_err(|e| RillError::Storage(e.to_string()))?;
+                            batch.put_cf(
+                                cf_contracts,
+                                contract.contract_id.as_bytes(),
+                                &contract_bytes,
+                            );
+
+                            // Increment contracts_fulfilled for both parties.
+                            for party_pkh in [contract.initiator, contract.counterparty] {
+                                if let Some(mut party_state) =
+                                    self.get_agent_wallet(&party_pkh)?
+                                {
+                                    party_state.contracts_fulfilled =
+                                        party_state.contracts_fulfilled.saturating_add(1);
+                                    let bytes = bincode::encode_to_vec(
+                                        &party_state,
+                                        bincode::config::standard(),
+                                    )
+                                    .map_err(|e| RillError::Storage(e.to_string()))?;
+                                    batch.put_cf(cf_agents, party_pkh.as_bytes(), &bytes);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                TxType::ContractDispute => {
+                    // Same reference encoding as ContractFulfil.
+                    let contract_ref = tx.lock_time.to_le_bytes();
+                    let cf_contracts = self.cf_handle(CF_AGENT_CONTRACTS)?;
+                    let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+
+                    let sender_pkh = tx.inputs.first().and_then(|inp| {
+                        undo.spent_utxos
+                            .iter()
+                            .find(|(op, _)| op == &inp.previous_output)
+                            .map(|(_, entry)| entry.output.pubkey_hash)
+                    });
+
+                    if let Some(sender) = sender_pkh {
+                        let iter = self
+                            .db
+                            .iterator_cf(&cf_contracts, rocksdb::IteratorMode::Start);
+                        let mut matched_contract: Option<AgentContract> = None;
+                        for item in iter {
+                            let (key_bytes, val_bytes) =
+                                item.map_err(|e| RillError::Storage(e.to_string()))?;
+                            if key_bytes.len() >= 8 && key_bytes[..8] == contract_ref {
+                                let (c, _): (AgentContract, _) =
+                                    bincode::decode_from_slice(
+                                        &val_bytes,
+                                        bincode::config::standard(),
+                                    )
+                                    .map_err(|e| RillError::Storage(e.to_string()))?;
+                                if c.status == ContractStatus::Open
+                                    && (c.initiator == sender || c.counterparty == sender)
+                                {
+                                    matched_contract = Some(c);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if let Some(mut contract) = matched_contract {
+                            contract.status = ContractStatus::Disputed;
+                            let contract_bytes = bincode::encode_to_vec(
+                                &contract,
+                                bincode::config::standard(),
+                            )
+                            .map_err(|e| RillError::Storage(e.to_string()))?;
+                            batch.put_cf(
+                                cf_contracts,
+                                contract.contract_id.as_bytes(),
+                                &contract_bytes,
+                            );
+
+                            // Increment contracts_disputed for both parties.
+                            for party_pkh in [contract.initiator, contract.counterparty] {
+                                if let Some(mut party_state) =
+                                    self.get_agent_wallet(&party_pkh)?
+                                {
+                                    party_state.contracts_disputed =
+                                        party_state.contracts_disputed.saturating_add(1);
+                                    let bytes = bincode::encode_to_vec(
+                                        &party_state,
+                                        bincode::config::standard(),
+                                    )
+                                    .map_err(|e| RillError::Storage(e.to_string()))?;
+                                    batch.put_cf(cf_agents, party_pkh.as_bytes(), &bytes);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                TxType::PeerReview => {
+                    // First output's pubkey_hash = subject being reviewed.
+                    // First output's value = review score (1–10).
+                    // First input's spent UTXO = reviewer agent.
+                    if let (Some(first_output), Some(first_input_utxo)) = (
+                        tx.outputs.first(),
+                        tx.inputs.first().and_then(|inp| {
+                            undo.spent_utxos
+                                .iter()
+                                .find(|(op, _)| op == &inp.previous_output)
+                                .map(|(_, entry)| entry)
+                        }),
+                    ) {
+                        let reviewer_pkh = first_input_utxo.output.pubkey_hash;
+                        let subject_pkh = first_output.pubkey_hash;
+                        let score = first_output.value;
+
+                        // Validate: reviewer must be an agent and score must be 1–10.
+                        if (1..=10).contains(&score)
+                            && self.is_agent_wallet(&reviewer_pkh)?
+                        {
+                            // Accumulate review on the subject (who need not be an agent,
+                            // but reviews only have effect if the subject is an agent).
+                            let cf_agents = self.cf_handle(CF_AGENT_WALLETS)?;
+                            if let Some(mut subject_state) =
+                                self.get_agent_wallet(&subject_pkh)?
+                            {
+                                subject_state.peer_review_sum =
+                                    subject_state.peer_review_sum.saturating_add(score);
+                                subject_state.peer_review_count =
+                                    subject_state.peer_review_count.saturating_add(1);
+                                let bytes = bincode::encode_to_vec(
+                                    &subject_state,
+                                    bincode::config::standard(),
+                                )
+                                .map_err(|e| RillError::Storage(e.to_string()))?;
+                                batch.put_cf(cf_agents, subject_pkh.as_bytes(), &bytes);
+                            }
                         }
                     }
                 }

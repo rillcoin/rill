@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use rill_core::address::Network;
-use rill_core::constants::{COIN, CONCENTRATION_PRECISION};
+use rill_core::constants::{AGENT_REGISTRATION_STAKE, COIN, CONCENTRATION_PRECISION};
 use rill_core::traits::DecayCalculator;
 use rill_wallet::{CoinSelector, Seed, Wallet};
 
@@ -122,6 +122,10 @@ enum Commands {
     Getsyncstatus(NodeArgs),
     /// Validate a RillCoin address (rill1... or trill1...).
     Validateaddress(ValidateAddressArgs),
+    /// Register this wallet as an agent wallet (requires 50 RILL stake).
+    RegisterAgent(RegisterAgentArgs),
+    /// Query the conduct profile of an agent wallet.
+    AgentProfile(AgentProfileArgs),
 }
 
 #[derive(Subcommand)]
@@ -213,6 +217,25 @@ struct ValidateAddressArgs {
     address: String,
 }
 
+#[derive(Args)]
+struct RegisterAgentArgs {
+    /// Path to wallet file.
+    #[arg(short, long)]
+    wallet: Option<PathBuf>,
+    /// RPC endpoint URL.
+    #[arg(short, long, default_value = "http://127.0.0.1:18332")]
+    rpc_endpoint: String,
+}
+
+#[derive(Args)]
+struct AgentProfileArgs {
+    /// Address to query.
+    address: String,
+    /// RPC endpoint URL.
+    #[arg(short, long, default_value = "http://127.0.0.1:18332")]
+    rpc_endpoint: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -237,6 +260,8 @@ async fn main() -> Result<()> {
         Commands::Getblockchaininfo(args) => get_blockchain_info(args, format).await,
         Commands::Getsyncstatus(args) => get_sync_status(args, format).await,
         Commands::Validateaddress(args) => validate_address(args, format),
+        Commands::RegisterAgent(args) => register_agent(args).await,
+        Commands::AgentProfile(args) => agent_profile(args, format).await,
     }
 }
 
@@ -852,6 +877,184 @@ async fn wallet_send(args: SendArgs) -> Result<()> {
     Ok(())
 }
 
+/// Register this wallet as an agent wallet via `TxType::AgentRegister`.
+async fn register_agent(args: RegisterAgentArgs) -> Result<()> {
+    let wallet_path = resolve_wallet_path(args.wallet)?;
+    let password = prompt_password("Wallet password")?;
+
+    let mut wallet = Wallet::load_from_file(&wallet_path, password.as_bytes())
+        .context("Failed to load wallet (check password)")?;
+
+    let client = rpc_client(&args.rpc_endpoint)?;
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    // Fetch UTXOs for wallet addresses (same pattern as wallet_send)
+    let mut all_utxos: Vec<(rill_core::types::OutPoint, rill_core::types::UtxoEntry)> = Vec::new();
+    let address_count = wallet.address_count();
+    for i in 0..address_count {
+        let addr = wallet.keychain_mut().address_at(i);
+        let addr_str = addr.encode();
+
+        let mut params = ArrayParams::new();
+        params.insert(addr_str).unwrap();
+
+        let utxo_jsons: Vec<serde_json::Value> = client
+            .request("getutxosbyaddress", params)
+            .await
+            .context("RPC getutxosbyaddress failed")?;
+
+        for utxo_json in utxo_jsons {
+            let txid_hex = utxo_json["txid"].as_str().unwrap_or_default();
+            let txid_bytes = hex::decode(txid_hex).unwrap_or_default();
+            let index = utxo_json["index"].as_u64().unwrap_or(0);
+            let value = utxo_json["value"].as_u64().unwrap_or(0);
+            let block_height = utxo_json["block_height"].as_u64().unwrap_or(0);
+            let is_coinbase = utxo_json["is_coinbase"].as_bool().unwrap_or(false);
+            let cluster_hex = utxo_json["cluster_id"].as_str().unwrap_or_default();
+            let cluster_bytes = hex::decode(cluster_hex).unwrap_or_default();
+            let pkh_hex = utxo_json["pubkey_hash"].as_str().unwrap_or_default();
+            let pkh_bytes = hex::decode(pkh_hex).unwrap_or_default();
+
+            if txid_bytes.len() == 32 && cluster_bytes.len() == 32 && pkh_bytes.len() == 32 {
+                let outpoint = rill_core::types::OutPoint {
+                    txid: rill_core::types::Hash256(txid_bytes.try_into().unwrap()),
+                    index,
+                };
+                let entry = rill_core::types::UtxoEntry {
+                    output: rill_core::types::TxOutput {
+                        value,
+                        pubkey_hash: rill_core::types::Hash256(pkh_bytes.try_into().unwrap()),
+                    },
+                    block_height,
+                    is_coinbase,
+                    cluster_id: rill_core::types::Hash256(cluster_bytes.try_into().unwrap()),
+                };
+                all_utxos.push((outpoint, entry));
+            }
+        }
+    }
+
+    wallet.scan_utxos(&all_utxos);
+
+    if wallet.utxo_count() == 0 {
+        bail!("No UTXOs found for wallet addresses");
+    }
+
+    // Get chain info for height and circulating supply
+    let info: serde_json::Value = client
+        .request("getinfo", ArrayParams::new())
+        .await
+        .context("RPC getinfo failed")?;
+    let height = info["blocks"].as_u64().unwrap_or(0);
+    let circulating_supply_rill = info["circulating_supply"].as_f64().unwrap_or(0.0);
+    let circulating_supply = (circulating_supply_rill * COIN as f64) as u64;
+
+    // Collect unique cluster IDs and fetch cluster balances via RPC
+    let utxo_list: Vec<(rill_core::types::OutPoint, rill_core::types::UtxoEntry)> =
+        wallet.owned_utxos().into_iter().collect();
+    let unique_cluster_ids: std::collections::HashSet<rill_core::types::Hash256> =
+        utxo_list.iter().map(|(_, entry)| entry.cluster_id).collect();
+
+    let mut cluster_balances: std::collections::HashMap<rill_core::types::Hash256, u64> =
+        std::collections::HashMap::new();
+    for cluster_id in &unique_cluster_ids {
+        let cluster_hex = hex::encode(cluster_id.as_bytes());
+        let mut params = ArrayParams::new();
+        params.insert(cluster_hex).unwrap();
+        let balance: u64 = client
+            .request("getclusterbalance", params)
+            .await
+            .unwrap_or(0);
+        cluster_balances.insert(*cluster_id, balance);
+    }
+
+    let rpc_state = RpcChainState {
+        supply: circulating_supply,
+        clusters: cluster_balances,
+    };
+
+    let decay_engine = rill_decay::engine::DecayEngine::new();
+
+    let tx = wallet
+        .register_as_agent(&decay_engine, &rpc_state, height)
+        .map_err(|e| anyhow::anyhow!("Failed to build agent registration transaction: {e}"))?;
+
+    let txid = tx.txid().context("Failed to compute transaction ID")?;
+
+    let tx_bytes = bincode::encode_to_vec(&tx, bincode::config::standard())
+        .context("Failed to serialize transaction")?;
+    let tx_hex = hex::encode(&tx_bytes);
+
+    let mut params = ArrayParams::new();
+    params.insert(tx_hex).unwrap();
+    let _: String = client
+        .request("sendrawtransaction", params)
+        .await
+        .context("RPC sendrawtransaction failed")?;
+
+    let stake_rill = AGENT_REGISTRATION_STAKE as f64 / COIN as f64;
+
+    println!("\n=== AGENT REGISTRATION SUBMITTED ===");
+    println!("TxID:  {}", hex::encode(txid.as_bytes()));
+    println!("Stake: {stake_rill:.8} RILL ({AGENT_REGISTRATION_STAKE} rills)");
+
+    wallet
+        .save_to_file(&wallet_path, password.as_bytes())
+        .context("Failed to save wallet")?;
+
+    Ok(())
+}
+
+/// Query the conduct profile of any address via `getAgentConductProfile` RPC.
+async fn agent_profile(args: AgentProfileArgs, format: OutputFormat) -> Result<()> {
+    let client = rpc_client(&args.rpc_endpoint)?;
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    let mut params = ArrayParams::new();
+    params.insert(args.address.clone()).unwrap();
+
+    let profile: serde_json::Value = client
+        .request("getAgentConductProfile", params)
+        .await
+        .context("RPC getAgentConductProfile failed")?;
+
+    match format {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&profile)?);
+        }
+        OutputFormat::Table => {
+            let wallet_type = profile["wallet_type"].as_str().unwrap_or("unknown");
+            let score = profile["conduct_score"].as_u64().unwrap_or(0);
+            let multiplier_bps = profile["conduct_multiplier_bps"].as_u64().unwrap_or(10000);
+            let undertow = profile["undertow_active"].as_bool().unwrap_or(false);
+            let reg_block = profile["registered_at_block"].as_u64().unwrap_or(0);
+            let age = profile["wallet_age_blocks"].as_u64().unwrap_or(0);
+
+            let multiplier_display = multiplier_bps as f64 / 10000.0;
+
+            println!("\n=== AGENT CONDUCT PROFILE ===");
+            println!("Address:          {}", args.address);
+            println!("Wallet type:      {wallet_type}");
+            if wallet_type == "agent" {
+                println!("Conduct score:    {score}/1000");
+                println!("Decay multiplier: {multiplier_display:.2}x  ({multiplier_bps} BPS)");
+                println!("Undertow active:  {}", if undertow { "YES" } else { "no" });
+                println!("Registered at:    block {reg_block}");
+                println!("Wallet age:       {age} blocks");
+            } else {
+                println!("Decay multiplier: 1.00x (standard)");
+                println!("(Not registered as agent wallet)");
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Parse seed input as either a BIP-39 mnemonic (multi-word) or hex string.
 fn parse_seed_input(input: &str) -> Result<Seed> {
     let trimmed = input.trim();
@@ -1024,6 +1227,14 @@ mod tests {
         assert!(
             subcommand_names.iter().any(|n| n == "validateaddress"),
             "validateaddress missing from subcommands: {subcommand_names:?}"
+        );
+        assert!(
+            subcommand_names.iter().any(|n| n == "register-agent"),
+            "register-agent missing from subcommands: {subcommand_names:?}"
+        );
+        assert!(
+            subcommand_names.iter().any(|n| n == "agent-profile"),
+            "agent-profile missing from subcommands: {subcommand_names:?}"
         );
     }
 }

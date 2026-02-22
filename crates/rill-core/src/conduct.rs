@@ -325,6 +325,85 @@ pub fn wallet_age_score(age_in_epochs: u64) -> u16 {
     raw.min(1000) as u16
 }
 
+/// Contract fulfilment rate score.
+///
+/// Returns a value in `0–1000` based on the ratio of fulfilled contracts to
+/// total contracts. A perfect fulfilment rate yields 1000; zero contracts
+/// fulfilled from a non-zero total yields 0. With no history at all, returns
+/// 500 (neutral).
+///
+/// # Examples
+///
+/// ```
+/// use rill_core::conduct::contract_fulfilment_score;
+///
+/// assert_eq!(contract_fulfilment_score(0, 0), 500);   // no contracts → neutral
+/// assert_eq!(contract_fulfilment_score(10, 10), 1000); // perfect → max
+/// assert_eq!(contract_fulfilment_score(5, 10), 500);   // 50% → neutral
+/// assert_eq!(contract_fulfilment_score(0, 10), 0);     // none fulfilled → min
+/// ```
+pub fn contract_fulfilment_score(fulfilled: u64, total: u64) -> u16 {
+    if total == 0 {
+        return 500; // Neutral if no contracts.
+    }
+    let score = fulfilled.saturating_mul(1000) / total;
+    score.min(1000) as u16
+}
+
+/// Dispute rate score.
+///
+/// Returns a value in `0–1000` inversely proportional to the dispute rate.
+/// No disputes yields 1000; all contracts disputed yields 0. With no
+/// contract history, returns 500 (neutral).
+///
+/// # Examples
+///
+/// ```
+/// use rill_core::conduct::dispute_rate_score;
+///
+/// assert_eq!(dispute_rate_score(0, 0), 500);    // no history → neutral
+/// assert_eq!(dispute_rate_score(0, 10), 1000);  // no disputes → max
+/// assert_eq!(dispute_rate_score(10, 10), 0);    // all disputed → min
+/// assert_eq!(dispute_rate_score(5, 10), 500);   // 50% dispute rate → neutral
+/// ```
+pub fn dispute_rate_score(disputed: u64, total: u64) -> u16 {
+    if total == 0 {
+        return 500; // Neutral if no contracts.
+    }
+    let dispute_ratio = disputed.saturating_mul(1000) / total;
+    1000u16.saturating_sub(dispute_ratio as u16)
+}
+
+/// Peer review aggregate score.
+///
+/// Maps the average peer review score (1–10 scale) onto the `0–1000`
+/// conduct score range. An average of 10 yields 1000; an average of 1
+/// yields 0. With no reviews, returns 500 (neutral).
+///
+/// Formula: `(avg_score - 1) * 1000 / 9`, where `avg_score` ∈ `[1, 10]`.
+///
+/// # Examples
+///
+/// ```
+/// use rill_core::conduct::peer_review_score;
+///
+/// assert_eq!(peer_review_score(0, 0), 500);          // no reviews → neutral
+/// assert_eq!(peer_review_score(100, 10), 1000);       // avg 10 → max
+/// assert_eq!(peer_review_score(10, 10), 0);           // avg 1 → min
+/// let mid = peer_review_score(55, 10);                // avg 5.5 → ~500
+/// assert!(mid >= 490 && mid <= 510, "expected ~500, got {mid}");
+/// ```
+pub fn peer_review_score(review_sum: u64, review_count: u64) -> u16 {
+    if review_count == 0 {
+        return 500; // Neutral if no reviews.
+    }
+    // avg * 100 to preserve fractional part in integer arithmetic.
+    let avg_x100 = review_sum.saturating_mul(100) / review_count;
+    // Map from [100, 1000] → [0, 1000]: subtract min (100), scale by 1000/900.
+    let score = avg_x100.saturating_sub(100).saturating_mul(1000) / 900;
+    score.min(1000) as u16
+}
+
 /// Velocity anomaly score: higher is better (less anomalous).
 ///
 /// * If the baseline has fewer than [`VELOCITY_BASELINE_MIN_EPOCHS`] epochs,
@@ -501,6 +580,89 @@ fn isqrt(n: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- contract_fulfilment_score ---
+
+    #[test]
+    fn contract_fulfilment_score_no_contracts() {
+        assert_eq!(contract_fulfilment_score(0, 0), 500);
+    }
+
+    #[test]
+    fn contract_fulfilment_score_perfect() {
+        assert_eq!(contract_fulfilment_score(10, 10), 1000);
+    }
+
+    #[test]
+    fn contract_fulfilment_score_half() {
+        assert_eq!(contract_fulfilment_score(5, 10), 500);
+    }
+
+    #[test]
+    fn contract_fulfilment_score_none_fulfilled() {
+        assert_eq!(contract_fulfilment_score(0, 10), 0);
+    }
+
+    #[test]
+    fn contract_fulfilment_score_never_exceeds_1000() {
+        // fulfilled > total would be a protocol bug, but saturate safely.
+        assert!(contract_fulfilment_score(20, 10) <= 1000);
+    }
+
+    // --- dispute_rate_score ---
+
+    #[test]
+    fn dispute_rate_score_no_contracts() {
+        assert_eq!(dispute_rate_score(0, 0), 500);
+    }
+
+    #[test]
+    fn dispute_rate_score_no_disputes() {
+        assert_eq!(dispute_rate_score(0, 10), 1000);
+    }
+
+    #[test]
+    fn dispute_rate_score_all_disputed() {
+        assert_eq!(dispute_rate_score(10, 10), 0);
+    }
+
+    #[test]
+    fn dispute_rate_score_half_disputed() {
+        assert_eq!(dispute_rate_score(5, 10), 500);
+    }
+
+    // --- peer_review_score ---
+
+    #[test]
+    fn peer_review_score_no_reviews() {
+        assert_eq!(peer_review_score(0, 0), 500);
+    }
+
+    #[test]
+    fn peer_review_score_perfect_ten() {
+        // 10 reviews all scoring 10 → sum = 100, avg = 10, score = 1000.
+        assert_eq!(peer_review_score(100, 10), 1000);
+    }
+
+    #[test]
+    fn peer_review_score_minimum_one() {
+        // 10 reviews all scoring 1 → sum = 10, avg = 1, score = 0.
+        assert_eq!(peer_review_score(10, 10), 0);
+    }
+
+    #[test]
+    fn peer_review_score_midpoint() {
+        // 10 reviews with avg 5.5 → sum = 55, expected ≈ 500.
+        let mid = peer_review_score(55, 10);
+        assert!(mid >= 490 && mid <= 510, "expected ~500 got {mid}");
+    }
+
+    #[test]
+    fn peer_review_score_single_review() {
+        // 1 review scoring 5 → avg = 5, score = (5-1)*1000/9 = 444.
+        let s = peer_review_score(5, 1);
+        assert_eq!(s, 444);
+    }
 
     // --- score_to_multiplier_bps ---
 
