@@ -12,6 +12,12 @@ import { createWalletSchema, createWallet } from "./tools/create-wallet.js";
 import { deriveAddressSchema, deriveAddress } from "./tools/derive-address.js";
 import { explainDecaySchema, explainDecay } from "./tools/explain-decay.js";
 import { searchSchema, search } from "./tools/search.js";
+import { getConductProfileSchema, getConductProfile } from "./tools/get-conduct-profile.js";
+import { registerAgentSchema, registerAgent } from "./tools/register-agent.js";
+import { vouchForAgentSchema, vouchForAgent } from "./tools/vouch-for-agent.js";
+import { createContractSchema, createContract } from "./tools/create-contract.js";
+import { fulfilContractSchema, fulfilContract } from "./tools/fulfil-contract.js";
+import { submitReviewSchema, submitReview } from "./tools/submit-review.js";
 
 const server = new McpServer({
   name: "rill",
@@ -92,6 +98,50 @@ server.tool(
   "Calculate and explain how RillCoin's concentration decay affects a given balance. Shows decay amount, effective value, and educational context about the sigmoid decay mechanism.",
   explainDecaySchema.shape,
   explainDecay,
+);
+
+// -- Agent tools --
+
+server.tool(
+  "get_conduct_profile",
+  "Get the Proof of Conduct profile for a RillCoin address — shows conduct score, decay multiplier, and agent status",
+  getConductProfileSchema.shape,
+  getConductProfile,
+);
+
+server.tool(
+  "register_agent",
+  "Register a wallet as an AI agent on RillCoin — stakes 50 RILL and activates Proof of Conduct tracking",
+  registerAgentSchema.shape,
+  registerAgent,
+);
+
+server.tool(
+  "vouch_for_agent",
+  "Vouch for another agent wallet — requires conduct score ≥ 700",
+  vouchForAgentSchema.shape,
+  vouchForAgent,
+);
+
+server.tool(
+  "create_contract",
+  "Create an agent-to-agent contract with escrow value on RillCoin",
+  createContractSchema.shape,
+  createContract,
+);
+
+server.tool(
+  "fulfil_contract",
+  "Mark an agent contract as fulfilled — both parties get credit",
+  fulfilContractSchema.shape,
+  fulfilContract,
+);
+
+server.tool(
+  "submit_review",
+  "Submit a peer review (1-10 score) for a completed agent contract",
+  submitReviewSchema.shape,
+  submitReview,
 );
 
 // -- Start server --

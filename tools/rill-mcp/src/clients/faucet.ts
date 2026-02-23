@@ -87,3 +87,94 @@ export interface FaucetStatus {
 export async function getStatus(): Promise<FaucetStatus> {
   return fetchJson(`${base()}/api/status`);
 }
+
+// -- Agent API --
+
+export interface AgentRegisterResult {
+  txid: string;
+}
+
+export async function registerAgent(mnemonic: string): Promise<AgentRegisterResult> {
+  return fetchJson(`${base()}/api/agent/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mnemonic }),
+  });
+}
+
+export interface ConductProfile {
+  address: string;
+  wallet_type: string;
+  conduct_score: number;
+  conduct_multiplier_bps: number;
+  effective_decay_rate_ppb: number;
+  undertow_active: boolean;
+  registered_at_block: number;
+  wallet_age_blocks: number;
+}
+
+export async function getAgentProfile(address: string): Promise<ConductProfile> {
+  return fetchJson(`${base()}/api/agent/profile?address=${encodeURIComponent(address)}`);
+}
+
+export interface AgentDirectory {
+  agents: Array<{
+    address: string;
+    conduct_score: number;
+    conduct_multiplier_bps: number;
+    undertow_active: boolean;
+    registered_at_block: number;
+  }>;
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export async function getAgentDirectory(offset = 0, limit = 20): Promise<AgentDirectory> {
+  return fetchJson(`${base()}/api/agent/directory?offset=${offset}&limit=${limit}`);
+}
+
+export interface TxResult {
+  txid: string;
+}
+
+export async function vouchForAgent(mnemonic: string, targetAddress: string): Promise<TxResult> {
+  return fetchJson(`${base()}/api/agent/vouch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mnemonic, target_address: targetAddress }),
+  });
+}
+
+export async function createContract(
+  mnemonic: string,
+  counterparty: string,
+  valueRill: number,
+): Promise<TxResult> {
+  return fetchJson(`${base()}/api/agent/contract/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mnemonic, counterparty, value_rill: valueRill }),
+  });
+}
+
+export async function fulfilContract(mnemonic: string, contractId: string): Promise<TxResult> {
+  return fetchJson(`${base()}/api/agent/contract/fulfil`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mnemonic, contract_id: contractId }),
+  });
+}
+
+export async function submitReview(
+  mnemonic: string,
+  subjectAddress: string,
+  score: number,
+  contractId: string,
+): Promise<TxResult> {
+  return fetchJson(`${base()}/api/agent/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mnemonic, subject_address: subjectAddress, score, contract_id: contractId }),
+  });
+}

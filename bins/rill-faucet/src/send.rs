@@ -471,6 +471,327 @@ pub async fn send_from_mnemonic(
     Ok((txid, fee))
 }
 
+// ---------------------------------------------------------------------------
+// Agent transaction builders
+// ---------------------------------------------------------------------------
+
+/// Build and broadcast a `TxType::AgentRegister` transaction from a mnemonic.
+///
+/// Returns the transaction ID (hex string) on success.
+pub async fn register_agent_from_mnemonic(
+    mnemonic: &str,
+    rpc_endpoint: &str,
+) -> Result<String> {
+    use rill_wallet::mnemonic_to_seed;
+
+    let seed = mnemonic_to_seed(mnemonic)
+        .map_err(|e| anyhow::anyhow!("Invalid mnemonic: {e}"))?;
+    let mut wallet = rill_wallet::Wallet::from_seed(seed, rill_core::address::Network::Testnet);
+
+    let client = rpc_client(rpc_endpoint)?;
+
+    // Scan UTXOs for this wallet.
+    let all_utxos = scan_mnemonic_utxos(&client, wallet.keychain_mut()).await?;
+    wallet.scan_utxos(&all_utxos);
+
+    if wallet.utxo_count() == 0 {
+        bail!("Wallet has no UTXOs — fund it first via the faucet");
+    }
+
+    let (height, circulating_supply) = fetch_chain_info(&client).await?;
+    let utxo_list: Vec<(OutPoint, UtxoEntry)> = wallet.owned_utxos().into_iter().collect();
+    let cluster_balances = fetch_cluster_balances(&client, &utxo_list).await?;
+
+    let rpc_state = RpcChainState {
+        supply: circulating_supply,
+        clusters: cluster_balances,
+    };
+
+    let decay_engine = rill_decay::engine::DecayEngine::new();
+    let tx = wallet
+        .register_as_agent(&decay_engine, &rpc_state, height)
+        .map_err(|e| anyhow::anyhow!("Failed to build agent registration: {e}"))?;
+
+    broadcast_tx(&client, &tx).await
+}
+
+/// Build and broadcast a `TxType::VouchFor` transaction from a mnemonic.
+pub async fn vouch_from_mnemonic(
+    mnemonic: &str,
+    target_address: &str,
+    rpc_endpoint: &str,
+) -> Result<String> {
+    let target = target_address
+        .parse::<rill_core::address::Address>()
+        .context("Invalid target address")?;
+
+    build_and_send_agent_tx(mnemonic, rpc_endpoint, TxType::VouchFor, |_wallet| {
+        Ok((target.pubkey_hash(), MIN_TX_FEE, 0))
+    })
+    .await
+}
+
+/// Build and broadcast a `TxType::ContractCreate` transaction from a mnemonic.
+pub async fn create_contract_from_mnemonic(
+    mnemonic: &str,
+    counterparty_address: &str,
+    value_rills: u64,
+    rpc_endpoint: &str,
+) -> Result<String> {
+    let counterparty = counterparty_address
+        .parse::<rill_core::address::Address>()
+        .context("Invalid counterparty address")?;
+
+    if value_rills == 0 {
+        bail!("Contract value must be greater than zero");
+    }
+
+    build_and_send_agent_tx(mnemonic, rpc_endpoint, TxType::ContractCreate, |_wallet| {
+        Ok((counterparty.pubkey_hash(), value_rills, 0))
+    })
+    .await
+}
+
+/// Build and broadcast a `TxType::ContractFulfil` transaction from a mnemonic.
+pub async fn fulfil_contract_from_mnemonic(
+    mnemonic: &str,
+    contract_id_hex: &str,
+    rpc_endpoint: &str,
+) -> Result<String> {
+    // Encode the first 8 bytes of the contract txid as lock_time.
+    let contract_bytes = hex::decode(contract_id_hex)
+        .context("Invalid contract ID hex")?;
+    if contract_bytes.len() != 32 {
+        bail!("Contract ID must be 64 hex characters (32 bytes)");
+    }
+    let lock_time = u64::from_le_bytes(contract_bytes[..8].try_into().unwrap());
+
+    build_and_send_agent_tx(mnemonic, rpc_endpoint, TxType::ContractFulfil, |wallet| {
+        // Send to self (the tx is just a signal, value goes to own address).
+        let self_pkh = wallet.keychain_mut().address_at(0).pubkey_hash();
+        Ok((self_pkh, MIN_TX_FEE, lock_time))
+    })
+    .await
+}
+
+/// Build and broadcast a `TxType::PeerReview` transaction from a mnemonic.
+pub async fn submit_review_from_mnemonic(
+    mnemonic: &str,
+    subject_address: &str,
+    score: u64,
+    contract_id_hex: &str,
+    rpc_endpoint: &str,
+) -> Result<String> {
+    if !(1..=10).contains(&score) {
+        bail!("Review score must be between 1 and 10");
+    }
+
+    let subject = subject_address
+        .parse::<rill_core::address::Address>()
+        .context("Invalid subject address")?;
+
+    let contract_bytes = hex::decode(contract_id_hex)
+        .context("Invalid contract ID hex")?;
+    if contract_bytes.len() != 32 {
+        bail!("Contract ID must be 64 hex characters (32 bytes)");
+    }
+    let lock_time = u64::from_le_bytes(contract_bytes[..8].try_into().unwrap());
+
+    build_and_send_agent_tx(mnemonic, rpc_endpoint, TxType::PeerReview, |_wallet| {
+        Ok((subject.pubkey_hash(), score, lock_time))
+    })
+    .await
+}
+
+/// Shared helper: build an agent transaction, sign it, and broadcast.
+///
+/// The `configure` closure returns `(first_output_pubkey_hash, first_output_value, lock_time)`.
+async fn build_and_send_agent_tx<F>(
+    mnemonic: &str,
+    rpc_endpoint: &str,
+    tx_type: TxType,
+    configure: F,
+) -> Result<String>
+where
+    F: FnOnce(&mut rill_wallet::Wallet) -> Result<(Hash256, u64, u64)>,
+{
+    use rill_wallet::mnemonic_to_seed;
+
+    let seed = mnemonic_to_seed(mnemonic)
+        .map_err(|e| anyhow::anyhow!("Invalid mnemonic: {e}"))?;
+    let mut wallet = rill_wallet::Wallet::from_seed(seed, rill_core::address::Network::Testnet);
+
+    let client = rpc_client(rpc_endpoint)?;
+
+    let all_utxos = scan_mnemonic_utxos(&client, wallet.keychain_mut()).await?;
+    wallet.scan_utxos(&all_utxos);
+
+    if wallet.utxo_count() == 0 {
+        bail!("Wallet has no UTXOs");
+    }
+
+    let (height, circulating_supply) = fetch_chain_info(&client).await?;
+    let utxo_list: Vec<(OutPoint, UtxoEntry)> = wallet.owned_utxos().into_iter().collect();
+    let cluster_balances = fetch_cluster_balances(&client, &utxo_list).await?;
+
+    let rpc_state = RpcChainState {
+        supply: circulating_supply,
+        clusters: cluster_balances,
+    };
+
+    let (target_pkh, output_value, lock_time) = configure(&mut wallet)?;
+
+    let decay_engine = rill_decay::engine::DecayEngine::new();
+    let selection = rill_wallet::CoinSelector::select(
+        &utxo_list,
+        output_value,
+        MIN_TX_FEE,
+        500,
+        &decay_engine,
+        &rpc_state,
+        height,
+    )
+    .map_err(|e| anyhow::anyhow!("Coin selection failed: {e}"))?;
+
+    let change = selection.change;
+    let change_addr = wallet.next_address();
+
+    let mut inputs: Vec<TxInput> = Vec::new();
+    let mut input_pubkey_hashes: Vec<Hash256> = Vec::new();
+
+    for wallet_utxo in &selection.selected {
+        inputs.push(TxInput {
+            previous_output: wallet_utxo.outpoint.clone(),
+            signature: vec![],
+            public_key: vec![],
+        });
+        input_pubkey_hashes.push(wallet_utxo.entry.output.pubkey_hash);
+    }
+
+    let mut outputs = vec![TxOutput {
+        value: output_value,
+        pubkey_hash: target_pkh,
+    }];
+    if change > 0 {
+        outputs.push(TxOutput {
+            value: change,
+            pubkey_hash: change_addr.pubkey_hash(),
+        });
+    }
+
+    let mut tx = Transaction {
+        version: 1,
+        tx_type,
+        inputs,
+        outputs,
+        lock_time,
+    };
+
+    for (i, pkh) in input_pubkey_hashes.iter().enumerate() {
+        let kp = wallet
+            .keychain()
+            .keypair_for_pubkey_hash(pkh)
+            .ok_or_else(|| anyhow::anyhow!("Signing key not found for input {i}"))?;
+        rill_core::crypto::sign_transaction_input(&mut tx, i, kp)
+            .context("Failed to sign transaction input")?;
+    }
+
+    broadcast_tx(&client, &tx).await
+}
+
+/// Scan UTXOs for a mnemonic-derived keychain (gap limit of 2).
+async fn scan_mnemonic_utxos(
+    client: &jsonrpsee::http_client::HttpClient,
+    keychain: &mut rill_wallet::KeyChain,
+) -> Result<Vec<(OutPoint, UtxoEntry)>> {
+    let mut all_utxos: Vec<(OutPoint, UtxoEntry)> = Vec::new();
+    let mut gap = 0u32;
+    let mut index = 0u32;
+
+    while gap < 2 {
+        let addr_str = keychain.address_at(index).encode();
+        let mut params = ArrayParams::new();
+        params.insert(addr_str).unwrap();
+
+        let utxo_jsons: Vec<serde_json::Value> = client
+            .request("getutxosbyaddress", params)
+            .await
+            .context("RPC getutxosbyaddress failed")?;
+
+        if utxo_jsons.is_empty() {
+            gap += 1;
+        } else {
+            gap = 0;
+            for utxo_json in utxo_jsons {
+                if let Some((outpoint, entry)) = parse_utxo_json(&utxo_json) {
+                    all_utxos.push((outpoint, entry));
+                }
+            }
+        }
+        index += 1;
+    }
+
+    Ok(all_utxos)
+}
+
+/// Fetch chain height and circulating supply from the node.
+async fn fetch_chain_info(
+    client: &jsonrpsee::http_client::HttpClient,
+) -> Result<(u64, u64)> {
+    let info: serde_json::Value = client
+        .request("getinfo", ArrayParams::new())
+        .await
+        .context("RPC getinfo failed")?;
+
+    let height = info["blocks"].as_u64().unwrap_or(0);
+    let circulating_rill = info["circulating_supply"].as_f64().unwrap_or(0.0);
+    let circulating_supply = (circulating_rill * rill_core::constants::COIN as f64) as u64;
+
+    Ok((height, circulating_supply))
+}
+
+/// Fetch cluster balances for all clusters referenced in the UTXO list.
+async fn fetch_cluster_balances(
+    client: &jsonrpsee::http_client::HttpClient,
+    utxo_list: &[(OutPoint, UtxoEntry)],
+) -> Result<HashMap<Hash256, u64>> {
+    let unique_clusters: HashSet<Hash256> =
+        utxo_list.iter().map(|(_, e)| e.cluster_id).collect();
+
+    let mut cluster_balances: HashMap<Hash256, u64> = HashMap::new();
+    for cluster_id in &unique_clusters {
+        let cluster_hex = hex::encode(cluster_id.as_bytes());
+        let mut params = ArrayParams::new();
+        params.insert(cluster_hex).unwrap();
+        let balance: u64 = client
+            .request("getclusterbalance", params)
+            .await
+            .unwrap_or(0);
+        cluster_balances.insert(*cluster_id, balance);
+    }
+
+    Ok(cluster_balances)
+}
+
+/// Serialize and broadcast a signed transaction.
+async fn broadcast_tx(
+    client: &jsonrpsee::http_client::HttpClient,
+    tx: &Transaction,
+) -> Result<String> {
+    let tx_bytes = bincode::encode_to_vec(tx, bincode::config::standard())
+        .context("Failed to serialize transaction")?;
+    let tx_hex = hex::encode(&tx_bytes);
+
+    let mut params = ArrayParams::new();
+    params.insert(tx_hex).unwrap();
+    let txid: String = client
+        .request("sendrawtransaction", params)
+        .await
+        .context("RPC sendrawtransaction failed")?;
+
+    Ok(txid)
+}
+
 /// Parse a UTXO JSON object from the RPC response into typed values.
 fn parse_utxo_json(utxo_json: &serde_json::Value) -> Option<(OutPoint, UtxoEntry)> {
     let txid_hex = utxo_json["txid"].as_str().unwrap_or_default();

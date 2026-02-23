@@ -183,6 +183,34 @@ pub struct UtxoJson {
     pub pubkey_hash: String,
 }
 
+/// JSON summary of an agent wallet for directory listings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSummaryJson {
+    /// Rill address (bech32m).
+    pub address: String,
+    /// Conduct score (0–1000).
+    pub conduct_score: u16,
+    /// Decay multiplier in basis points (10,000 = 1.0×).
+    pub conduct_multiplier_bps: u64,
+    /// Whether the Undertow penalty is active.
+    pub undertow_active: bool,
+    /// Block height at which the agent was registered.
+    pub registered_at_block: u64,
+}
+
+/// Paginated agent directory response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDirectoryJson {
+    /// Agent summaries for this page.
+    pub agents: Vec<AgentSummaryJson>,
+    /// Total number of registered agents.
+    pub total: usize,
+    /// Offset used for this page.
+    pub offset: usize,
+    /// Limit used for this page.
+    pub limit: usize,
+}
+
 /// JSON representation of an agent's conduct profile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConductProfileJson {
@@ -303,6 +331,14 @@ pub trait RillRpc {
         &self,
         address: String,
     ) -> Result<ConductProfileJson, ErrorObjectOwned>;
+
+    /// Returns a paginated directory of all registered agent wallets.
+    #[method(name = "listAgentWallets")]
+    async fn list_agent_wallets(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<AgentDirectoryJson, ErrorObjectOwned>;
 }
 
 /// Implementation of the Rill JSON-RPC server.
@@ -662,6 +698,32 @@ impl RillRpcServer for RpcServerImpl {
             }),
         }
     }
+
+    async fn list_agent_wallets(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<AgentDirectoryJson, ErrorObjectOwned> {
+        let capped_limit = limit.min(100);
+
+        // Determine the address network from node config.
+        let network = match self.node.config().network_type {
+            rill_core::constants::NetworkType::Mainnet => rill_core::address::Network::Mainnet,
+            _ => rill_core::address::Network::Testnet,
+        };
+
+        let (agents, total) = self
+            .node
+            .list_agent_wallets(offset, capped_limit, network)
+            .map_err(|e| rpc_error(-1, &e.to_string()))?;
+
+        Ok(AgentDirectoryJson {
+            agents,
+            total,
+            offset,
+            limit: capped_limit,
+        })
+    }
 }
 
 /// Start the JSON-RPC server on the given address.
@@ -849,5 +911,32 @@ mod tests {
         assert!(json.contains("\"utxo_count\":42"));
         assert!(json.contains("\"mempool_size\":5"));
         assert!(json.contains("\"peer_count\":3"));
+    }
+
+    #[test]
+    fn agent_summary_json_serializes() {
+        let summary = AgentSummaryJson {
+            address: "trill1abc".to_string(),
+            conduct_score: 500,
+            conduct_multiplier_bps: 15_000,
+            undertow_active: false,
+            registered_at_block: 42,
+        };
+        let json = serde_json::to_string(&summary).unwrap();
+        assert!(json.contains("\"conduct_score\":500"));
+        assert!(json.contains("\"registered_at_block\":42"));
+    }
+
+    #[test]
+    fn agent_directory_json_serializes() {
+        let dir = AgentDirectoryJson {
+            agents: vec![],
+            total: 0,
+            offset: 0,
+            limit: 20,
+        };
+        let json = serde_json::to_string(&dir).unwrap();
+        assert!(json.contains("\"total\":0"));
+        assert!(json.contains("\"limit\":20"));
     }
 }

@@ -1,0 +1,767 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "RillCoin Faucet & Agent API",
+    "description": "Testnet faucet and Proof of Conduct agent API for the RillCoin cryptocurrency.",
+    "version": "0.1.0",
+    "contact": {
+      "name": "RillCoin",
+      "email": "dev@rillcoin.com",
+      "url": "https://rillcoin.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://faucet.rillcoin.com",
+      "description": "Testnet faucet"
+    }
+  ],
+  "paths": {
+    "/api/wallet/new": {
+      "get": {
+        "operationId": "createWallet",
+        "summary": "Generate a new testnet wallet",
+        "description": "Creates a new BIP-39 mnemonic and derives a trill1... address.",
+        "tags": ["wallet"],
+        "responses": {
+          "200": {
+            "description": "New wallet created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mnemonic": {
+                      "type": "string",
+                      "description": "BIP-39 mnemonic phrase (12 words)"
+                    },
+                    "address": {
+                      "type": "string",
+                      "description": "Bech32 testnet address (trill1...)"
+                    }
+                  },
+                  "required": ["mnemonic", "address"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/faucet": {
+      "post": {
+        "operationId": "claimFaucet",
+        "summary": "Claim free testnet RILL",
+        "description": "Sends 100 RILL to the given testnet address. Rate-limited to once per address per hour.",
+        "tags": ["faucet"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {
+                    "type": "string",
+                    "description": "Testnet address to fund (trill1...)"
+                  }
+                },
+                "required": ["address"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Faucet claim successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "txid": {
+                      "type": "string",
+                      "description": "Transaction ID (64 hex chars)"
+                    },
+                    "amount": {
+                      "type": "string",
+                      "description": "Amount sent (e.g. '100.00000000')"
+                    }
+                  },
+                  "required": ["txid", "amount"]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited — try again later"
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "operationId": "getStatus",
+        "summary": "Get network status",
+        "description": "Returns current block height, mempool size, and faucet balance.",
+        "tags": ["network"],
+        "responses": {
+          "200": {
+            "description": "Network status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "block_height": {
+                      "type": "integer",
+                      "description": "Current block height"
+                    },
+                    "mempool_size": {
+                      "type": "integer",
+                      "description": "Number of pending transactions"
+                    },
+                    "faucet_balance": {
+                      "type": "string",
+                      "description": "Remaining faucet balance"
+                    }
+                  },
+                  "required": ["block_height", "mempool_size", "faucet_balance"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wallet/balance": {
+      "get": {
+        "operationId": "getBalance",
+        "summary": "Get wallet balance",
+        "description": "Returns confirmed balance and UTXO count for an address.",
+        "tags": ["wallet"],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Testnet address (trill1...)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balance info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "balance": {
+                      "type": "string",
+                      "description": "Confirmed balance in RILL"
+                    },
+                    "utxo_count": {
+                      "type": "integer",
+                      "description": "Number of unspent outputs"
+                    }
+                  },
+                  "required": ["address", "balance", "utxo_count"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/wallet/send": {
+      "post": {
+        "operationId": "sendRill",
+        "summary": "Send RILL to an address",
+        "description": "Build, sign, and broadcast a transaction sending RILL.",
+        "tags": ["wallet"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "Sender's BIP-39 mnemonic"
+                  },
+                  "to": {
+                    "type": "string",
+                    "description": "Recipient address (trill1...)"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "Amount in RILL"
+                  }
+                },
+                "required": ["mnemonic", "to", "amount"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction broadcast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "txid": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["txid", "from", "to", "amount"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or insufficient balance"
+          }
+        }
+      }
+    },
+    "/api/wallet/derive": {
+      "post": {
+        "operationId": "deriveAddress",
+        "summary": "Derive address from mnemonic",
+        "description": "Returns the address derived from a BIP-39 mnemonic without creating a new wallet.",
+        "tags": ["wallet"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "BIP-39 mnemonic phrase"
+                  }
+                },
+                "required": ["mnemonic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Derived address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["address"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/register": {
+      "post": {
+        "operationId": "registerAgent",
+        "summary": "Register wallet as AI agent",
+        "description": "Stakes 50 RILL and registers the wallet as an AI agent in the Proof of Conduct system. The agent starts with a conduct score of 500.",
+        "tags": ["agent"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "BIP-39 mnemonic phrase for the wallet to register"
+                  }
+                },
+                "required": ["mnemonic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string",
+                      "description": "Agent's address"
+                    },
+                    "stake_txid": {
+                      "type": "string",
+                      "description": "Staking transaction ID"
+                    },
+                    "conduct_score": {
+                      "type": "integer",
+                      "description": "Initial conduct score (500)"
+                    }
+                  },
+                  "required": ["address", "stake_txid", "conduct_score"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Insufficient balance or already registered"
+          }
+        }
+      }
+    },
+    "/api/agent/profile": {
+      "get": {
+        "operationId": "getConductProfile",
+        "summary": "Query agent conduct profile",
+        "description": "Returns the Proof of Conduct score, reputation tier, contract history, and vouches for an agent.",
+        "tags": ["agent"],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Agent's address (trill1...)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conduct profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "conduct_score": {
+                      "type": "integer",
+                      "description": "Current conduct score (0-1000)"
+                    },
+                    "tier": {
+                      "type": "string",
+                      "enum": ["observer", "participant", "contributor", "trusted", "exemplary"],
+                      "description": "Reputation tier"
+                    },
+                    "contracts_completed": {
+                      "type": "integer"
+                    },
+                    "contracts_failed": {
+                      "type": "integer"
+                    },
+                    "vouches_received": {
+                      "type": "integer"
+                    },
+                    "vouches_given": {
+                      "type": "integer"
+                    },
+                    "reviews_received": {
+                      "type": "integer"
+                    },
+                    "average_review_score": {
+                      "type": "number"
+                    },
+                    "registered_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["address", "conduct_score", "tier"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        }
+      }
+    },
+    "/api/agent/directory": {
+      "get": {
+        "operationId": "listAgents",
+        "summary": "Browse agent directory",
+        "description": "Returns a paginated list of registered agents sorted by conduct score.",
+        "tags": ["agent"],
+        "parameters": [
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Pagination offset"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            },
+            "description": "Number of results (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "conduct_score": {
+                            "type": "integer"
+                          },
+                          "tier": {
+                            "type": "string"
+                          },
+                          "contracts_completed": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["agents", "total", "offset", "limit"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/vouch": {
+      "post": {
+        "operationId": "vouchForAgent",
+        "summary": "Vouch for another agent",
+        "description": "Submit a vouch for another agent. Requires the voucher to have a conduct score >= 700. Each agent can vouch for a target only once.",
+        "tags": ["agent"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "Voucher's BIP-39 mnemonic"
+                  },
+                  "target_address": {
+                    "type": "string",
+                    "description": "Address of the agent to vouch for"
+                  }
+                },
+                "required": ["mnemonic", "target_address"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vouch recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "voucher": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    },
+                    "txid": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["voucher", "target", "txid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Score too low, already vouched, or target not found"
+          }
+        }
+      }
+    },
+    "/api/agent/contract/create": {
+      "post": {
+        "operationId": "createContract",
+        "summary": "Create agent-to-agent contract",
+        "description": "Creates a new contract between two agents with escrow. The initiator's RILL is locked until the contract is fulfilled or expires.",
+        "tags": ["agent"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "Initiator's BIP-39 mnemonic"
+                  },
+                  "counterparty": {
+                    "type": "string",
+                    "description": "Counterparty agent's address"
+                  },
+                  "value_rill": {
+                    "type": "number",
+                    "description": "Contract value in RILL (locked as escrow)"
+                  }
+                },
+                "required": ["mnemonic", "counterparty", "value_rill"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contract_id": {
+                      "type": "string",
+                      "description": "Contract transaction ID"
+                    },
+                    "initiator": {
+                      "type": "string"
+                    },
+                    "counterparty": {
+                      "type": "string"
+                    },
+                    "value_rill": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["open"]
+                    }
+                  },
+                  "required": ["contract_id", "initiator", "counterparty", "value_rill", "status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Insufficient balance, not an agent, or counterparty not found"
+          }
+        }
+      }
+    },
+    "/api/agent/contract/fulfil": {
+      "post": {
+        "operationId": "fulfilContract",
+        "summary": "Fulfil an open contract",
+        "description": "Marks a contract as fulfilled by the counterparty. Releases escrow and updates both agents' conduct records.",
+        "tags": ["agent"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "Fulfiller's BIP-39 mnemonic"
+                  },
+                  "contract_id": {
+                    "type": "string",
+                    "description": "Contract transaction ID (64 hex chars)"
+                  }
+                },
+                "required": ["mnemonic", "contract_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract fulfilled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contract_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["fulfilled"]
+                    },
+                    "release_txid": {
+                      "type": "string",
+                      "description": "Escrow release transaction ID"
+                    }
+                  },
+                  "required": ["contract_id", "status", "release_txid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contract not found, not open, or unauthorized"
+          }
+        }
+      }
+    },
+    "/api/agent/review": {
+      "post": {
+        "operationId": "submitReview",
+        "summary": "Submit peer review for a contract",
+        "description": "Submit a review (1-10 score) for an agent after a contract is fulfilled. Only contract participants can review each other. Reviews affect the subject's conduct score.",
+        "tags": ["agent"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mnemonic": {
+                    "type": "string",
+                    "description": "Reviewer's BIP-39 mnemonic"
+                  },
+                  "subject_address": {
+                    "type": "string",
+                    "description": "Address of the agent being reviewed"
+                  },
+                  "score": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Review score (1 = terrible, 10 = excellent)"
+                  },
+                  "contract_id": {
+                    "type": "string",
+                    "description": "Contract transaction ID this review relates to"
+                  }
+                },
+                "required": ["mnemonic", "subject_address", "score", "contract_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reviewer": {
+                      "type": "string"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "score": {
+                      "type": "integer"
+                    },
+                    "contract_id": {
+                      "type": "string"
+                    },
+                    "new_conduct_score": {
+                      "type": "integer",
+                      "description": "Subject's updated conduct score"
+                    }
+                  },
+                  "required": ["reviewer", "subject", "score", "contract_id", "new_conduct_score"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid score, contract not fulfilled, or unauthorized reviewer"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "wallet",
+      "description": "Wallet creation, balance queries, and transactions"
+    },
+    {
+      "name": "faucet",
+      "description": "Testnet faucet for free RILL"
+    },
+    {
+      "name": "network",
+      "description": "Network status and info"
+    },
+    {
+      "name": "agent",
+      "description": "Proof of Conduct agent operations"
+    }
+  ]
+}

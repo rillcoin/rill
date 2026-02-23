@@ -19,12 +19,21 @@ use rill_core::constants::COIN;
 use rill_wallet::{seed_to_mnemonic, KeyChain, Seed};
 
 use crate::discord;
-use crate::send::{fetch_balance, fetch_balance_for_address, rpc_client, send_from_mnemonic, send_rill};
+use crate::send::{
+    create_contract_from_mnemonic, fetch_balance, fetch_balance_for_address,
+    fulfil_contract_from_mnemonic, register_agent_from_mnemonic, rpc_client,
+    send_from_mnemonic, send_rill, submit_review_from_mnemonic, vouch_from_mnemonic,
+};
 use crate::AppState;
 
 // Embed the web UI at compile time.
 const INDEX_HTML: &str = include_str!("static/index.html");
 const CREATE_WALLET_HTML: &str = include_str!("static/create_wallet.html");
+
+// Embed discovery files at compile time.
+const WELL_KNOWN_AGENTS: &str = include_str!("static/well-known-rill-agents.json");
+const AI_PLUGIN: &str = include_str!("static/ai-plugin.json");
+const OPENAPI_SPEC: &str = include_str!("static/openapi.json");
 
 // ---------------------------------------------------------------------------
 // Router
@@ -46,6 +55,18 @@ pub fn router(state: AppState) -> Router {
         .route("/api/wallet/send", post(api_wallet_send))
         .route("/api/wallet/derive", post(api_wallet_derive))
         .route("/discord/interactions", post(discord_interactions))
+        // -- Agent endpoints --
+        .route("/api/agent/register", post(api_agent_register))
+        .route("/api/agent/profile", get(api_agent_profile))
+        .route("/api/agent/directory", get(api_agent_directory))
+        .route("/api/agent/vouch", post(api_agent_vouch))
+        .route("/api/agent/contract/create", post(api_agent_contract_create))
+        .route("/api/agent/contract/fulfil", post(api_agent_contract_fulfil))
+        .route("/api/agent/review", post(api_agent_review))
+        // -- Discovery endpoints --
+        .route("/.well-known/rill-agents.json", get(well_known_agents))
+        .route("/.well-known/ai-plugin.json", get(ai_plugin))
+        .route("/api/openapi.json", get(openapi_spec))
         .with_state(state)
         .layer(cors)
 }
@@ -480,6 +501,325 @@ async fn api_wallet_derive(Json(req): Json<DeriveRequest>) -> impl IntoResponse 
             StatusCode::BAD_REQUEST,
             Json(json!({"error": format!("Invalid mnemonic: {e}")})),
         ),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Discovery endpoints
+// ---------------------------------------------------------------------------
+
+/// `GET /.well-known/rill-agents.json` — machine-readable agent discovery.
+async fn well_known_agents() -> impl IntoResponse {
+    (
+        [("content-type", "application/json")],
+        WELL_KNOWN_AGENTS,
+    )
+}
+
+/// `GET /.well-known/ai-plugin.json` — ChatGPT plugin manifest.
+async fn ai_plugin() -> impl IntoResponse {
+    (
+        [("content-type", "application/json")],
+        AI_PLUGIN,
+    )
+}
+
+/// `GET /api/openapi.json` — OpenAPI 3.0 specification.
+async fn openapi_spec() -> impl IntoResponse {
+    (
+        [("content-type", "application/json")],
+        OPENAPI_SPEC,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Agent API
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct AgentRegisterRequest {
+    mnemonic: String,
+}
+
+/// `POST /api/agent/register` — register a wallet as an agent.
+async fn api_agent_register(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<AgentRegisterRequest>,
+) -> impl IntoResponse {
+    let ip = extract_ip(&headers);
+
+    // Rate limit by IP.
+    {
+        let limiter = state.wallet_rate_limiter.lock().await;
+        let key = format!("agent_register:{ip}");
+        if let Err((msg, _)) = limiter.check(&key, ip) {
+            return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
+        }
+    }
+
+    match register_agent_from_mnemonic(&req.mnemonic, &state.config.rpc_endpoint).await {
+        Ok(txid) => {
+            info!(%txid, "Agent registration submitted");
+            let mut limiter = state.wallet_rate_limiter.lock().await;
+            let key = format!("agent_register:{ip}");
+            limiter.record(&key, ip);
+            (StatusCode::OK, Json(json!({"txid": txid})))
+        }
+        Err(e) => {
+            warn!(error = %e, "Agent registration failed");
+            (StatusCode::BAD_REQUEST, Json(json!({"error": e.to_string()})))
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct AgentProfileQuery {
+    address: String,
+}
+
+/// `GET /api/agent/profile?address=trill1...` — get agent conduct profile.
+async fn api_agent_profile(
+    State(state): State<AppState>,
+    Query(query): Query<AgentProfileQuery>,
+) -> impl IntoResponse {
+    let client = match rpc_client(&state.config.rpc_endpoint) {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "Node unavailable"})),
+            );
+        }
+    };
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    let mut params = ArrayParams::new();
+    params.insert(query.address.clone()).unwrap();
+
+    match client
+        .request::<serde_json::Value, _>("getAgentConductProfile", params)
+        .await
+    {
+        Ok(profile) => (StatusCode::OK, Json(profile)),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"error": format!("RPC error: {e}")})),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+struct AgentDirectoryQuery {
+    #[serde(default)]
+    offset: usize,
+    #[serde(default = "default_directory_limit")]
+    limit: usize,
+}
+
+fn default_directory_limit() -> usize {
+    20
+}
+
+/// `GET /api/agent/directory?offset=0&limit=20` — paginated agent directory.
+async fn api_agent_directory(
+    State(state): State<AppState>,
+    Query(query): Query<AgentDirectoryQuery>,
+) -> impl IntoResponse {
+    let client = match rpc_client(&state.config.rpc_endpoint) {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "Node unavailable"})),
+            );
+        }
+    };
+
+    use jsonrpsee::core::client::ClientT;
+    use jsonrpsee::core::params::ArrayParams;
+
+    let mut params = ArrayParams::new();
+    params.insert(query.offset).unwrap();
+    params.insert(query.limit.min(100)).unwrap();
+
+    match client
+        .request::<serde_json::Value, _>("listAgentWallets", params)
+        .await
+    {
+        Ok(directory) => (StatusCode::OK, Json(directory)),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({"error": format!("RPC error: {e}")})),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+struct VouchRequest {
+    mnemonic: String,
+    target_address: String,
+}
+
+/// `POST /api/agent/vouch` — vouch for another agent.
+async fn api_agent_vouch(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<VouchRequest>,
+) -> impl IntoResponse {
+    let ip = extract_ip(&headers);
+    {
+        let limiter = state.wallet_rate_limiter.lock().await;
+        let key = format!("agent_vouch:{ip}");
+        if let Err((msg, _)) = limiter.check(&key, ip) {
+            return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
+        }
+    }
+
+    match vouch_from_mnemonic(&req.mnemonic, &req.target_address, &state.config.rpc_endpoint).await
+    {
+        Ok(txid) => {
+            info!(%txid, "Vouch submitted");
+            let mut limiter = state.wallet_rate_limiter.lock().await;
+            let key = format!("agent_vouch:{ip}");
+            limiter.record(&key, ip);
+            (StatusCode::OK, Json(json!({"txid": txid})))
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({"error": e.to_string()}))),
+    }
+}
+
+#[derive(Deserialize)]
+struct ContractCreateRequest {
+    mnemonic: String,
+    counterparty: String,
+    value_rill: f64,
+}
+
+/// `POST /api/agent/contract/create` — create an agent contract.
+async fn api_agent_contract_create(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ContractCreateRequest>,
+) -> impl IntoResponse {
+    let ip = extract_ip(&headers);
+    {
+        let limiter = state.wallet_rate_limiter.lock().await;
+        let key = format!("agent_contract:{ip}");
+        if let Err((msg, _)) = limiter.check(&key, ip) {
+            return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
+        }
+    }
+
+    if req.value_rill <= 0.0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": "Contract value must be greater than zero"})),
+        );
+    }
+
+    let value_rills = (req.value_rill * COIN as f64) as u64;
+
+    match create_contract_from_mnemonic(
+        &req.mnemonic,
+        &req.counterparty,
+        value_rills,
+        &state.config.rpc_endpoint,
+    )
+    .await
+    {
+        Ok(txid) => {
+            info!(%txid, "Contract created");
+            let mut limiter = state.wallet_rate_limiter.lock().await;
+            let key = format!("agent_contract:{ip}");
+            limiter.record(&key, ip);
+            (StatusCode::OK, Json(json!({"txid": txid})))
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({"error": e.to_string()}))),
+    }
+}
+
+#[derive(Deserialize)]
+struct ContractFulfilRequest {
+    mnemonic: String,
+    contract_id: String,
+}
+
+/// `POST /api/agent/contract/fulfil` — fulfil an agent contract.
+async fn api_agent_contract_fulfil(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ContractFulfilRequest>,
+) -> impl IntoResponse {
+    let ip = extract_ip(&headers);
+    {
+        let limiter = state.wallet_rate_limiter.lock().await;
+        let key = format!("agent_fulfil:{ip}");
+        if let Err((msg, _)) = limiter.check(&key, ip) {
+            return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
+        }
+    }
+
+    match fulfil_contract_from_mnemonic(
+        &req.mnemonic,
+        &req.contract_id,
+        &state.config.rpc_endpoint,
+    )
+    .await
+    {
+        Ok(txid) => {
+            info!(%txid, "Contract fulfilled");
+            let mut limiter = state.wallet_rate_limiter.lock().await;
+            let key = format!("agent_fulfil:{ip}");
+            limiter.record(&key, ip);
+            (StatusCode::OK, Json(json!({"txid": txid})))
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({"error": e.to_string()}))),
+    }
+}
+
+#[derive(Deserialize)]
+struct ReviewRequest {
+    mnemonic: String,
+    subject_address: String,
+    score: u64,
+    contract_id: String,
+}
+
+/// `POST /api/agent/review` — submit a peer review.
+async fn api_agent_review(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ReviewRequest>,
+) -> impl IntoResponse {
+    let ip = extract_ip(&headers);
+    {
+        let limiter = state.wallet_rate_limiter.lock().await;
+        let key = format!("agent_review:{ip}");
+        if let Err((msg, _)) = limiter.check(&key, ip) {
+            return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error": msg})));
+        }
+    }
+
+    match submit_review_from_mnemonic(
+        &req.mnemonic,
+        &req.subject_address,
+        req.score,
+        &req.contract_id,
+        &state.config.rpc_endpoint,
+    )
+    .await
+    {
+        Ok(txid) => {
+            info!(%txid, "Review submitted");
+            let mut limiter = state.wallet_rate_limiter.lock().await;
+            let key = format!("agent_review:{ip}");
+            limiter.record(&key, ip);
+            (StatusCode::OK, Json(json!({"txid": txid})))
+        }
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({"error": e.to_string()}))),
     }
 }
 

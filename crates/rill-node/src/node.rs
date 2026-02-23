@@ -341,6 +341,18 @@ impl Node {
         self.storage.read().get_agent_wallet(pubkey_hash)
     }
 
+    /// List registered agent wallets with pagination.
+    ///
+    /// Returns `(summaries, total_count)`.
+    pub fn list_agent_wallets(
+        &self,
+        offset: usize,
+        limit: usize,
+        network: rill_core::address::Network,
+    ) -> Result<(Vec<crate::rpc::AgentSummaryJson>, usize), RillError> {
+        self.storage.read().list_agent_wallets(offset, limit, network)
+    }
+
     /// Process and connect a new block.
     ///
     /// Validates the block via the consensus engine, connects it to storage,

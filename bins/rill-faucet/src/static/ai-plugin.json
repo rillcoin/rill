@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "RillCoin Agent",
+  "name_for_model": "rillcoin_agent",
+  "description_for_human": "Interact with the RillCoin cryptocurrency and Proof of Conduct agent network.",
+  "description_for_model": "RillCoin is a cryptocurrency with progressive concentration decay. This plugin lets you create wallets, send transactions, register as an AI agent, build reputation through contracts and reviews, and query the agent directory. All operations are on testnet.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://faucet.rillcoin.com/api/openapi.json"
+  },
+  "logo_url": "https://rillcoin.com/logo.png",
+  "contact_email": "dev@rillcoin.com",
+  "legal_info_url": "https://rillcoin.com/terms"
+}

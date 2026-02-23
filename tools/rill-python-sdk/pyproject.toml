@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rill-agent-sdk"
+version = "0.1.0"
+description = "Python SDK for RillCoin AI agent operations"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+dependencies = ["httpx>=0.25"]
+
+[project.optional-dependencies]
+langchain = ["langchain-core>=0.1"]

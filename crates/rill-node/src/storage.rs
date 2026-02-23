@@ -449,6 +449,47 @@ impl RocksStore {
             .map_err(|e| RillError::Storage(e.to_string()))
     }
 
+    /// List agent wallets with offset/limit pagination.
+    ///
+    /// Returns `(agents, total_count)`. The `network` parameter is used to
+    /// reconstruct bech32m addresses from stored pubkey hashes.
+    pub fn list_agent_wallets(
+        &self,
+        offset: usize,
+        limit: usize,
+        network: rill_core::address::Network,
+    ) -> Result<(Vec<crate::rpc::AgentSummaryJson>, usize), RillError> {
+        use crate::rpc::AgentSummaryJson;
+        use rill_core::address::Address;
+
+        let cf = self.cf_handle(CF_AGENT_WALLETS)?;
+        let iter = self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start);
+
+        let mut total = 0usize;
+        let mut agents = Vec::new();
+
+        for item in iter {
+            let (_key, value) = item.map_err(|e| RillError::Storage(e.to_string()))?;
+            let (state, _): (AgentWalletState, _) =
+                bincode::decode_from_slice(&value, bincode::config::standard())
+                    .map_err(|e| RillError::Storage(e.to_string()))?;
+
+            if total >= offset && agents.len() < limit {
+                let addr = Address::from_pubkey_hash(state.pubkey_hash, network);
+                agents.push(AgentSummaryJson {
+                    address: addr.encode(),
+                    conduct_score: state.conduct_score,
+                    conduct_multiplier_bps: state.conduct_multiplier_bps,
+                    undertow_active: state.undertow_active,
+                    registered_at_block: state.registered_at_block,
+                });
+            }
+            total += 1;
+        }
+
+        Ok((agents, total))
+    }
+
     /// Check if a pubkey hash is registered as an agent wallet.
     pub fn is_agent_wallet(&self, pubkey_hash: &Hash256) -> Result<bool, RillError> {
         let cf = self.cf_handle(CF_AGENT_WALLETS)?;

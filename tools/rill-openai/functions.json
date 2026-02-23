@@ -1,0 +1,80 @@
+[
+  {
+    "name": "rill_create_wallet",
+    "description": "Generate a new RillCoin testnet wallet",
+    "parameters": { "type": "object", "properties": {}, "required": [] }
+  },
+  {
+    "name": "rill_register_agent",
+    "description": "Register a wallet as an AI agent on RillCoin (stakes 50 RILL)",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "mnemonic": { "type": "string", "description": "BIP-39 mnemonic phrase" }
+      },
+      "required": ["mnemonic"]
+    }
+  },
+  {
+    "name": "rill_get_conduct_profile",
+    "description": "Get the Proof of Conduct profile for a RillCoin address",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "address": { "type": "string", "description": "RillCoin address (trill1...)" }
+      },
+      "required": ["address"]
+    }
+  },
+  {
+    "name": "rill_vouch_for_agent",
+    "description": "Vouch for another agent (requires conduct score >= 700)",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "mnemonic": { "type": "string", "description": "Voucher's mnemonic" },
+        "target_address": { "type": "string", "description": "Address to vouch for" }
+      },
+      "required": ["mnemonic", "target_address"]
+    }
+  },
+  {
+    "name": "rill_create_contract",
+    "description": "Create an agent-to-agent contract with escrow",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "mnemonic": { "type": "string", "description": "Initiator's mnemonic" },
+        "counterparty": { "type": "string", "description": "Counterparty address" },
+        "value_rill": { "type": "number", "description": "Contract value in RILL" }
+      },
+      "required": ["mnemonic", "counterparty", "value_rill"]
+    }
+  },
+  {
+    "name": "rill_fulfil_contract",
+    "description": "Mark an agent contract as fulfilled",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "mnemonic": { "type": "string", "description": "Fulfiller's mnemonic" },
+        "contract_id": { "type": "string", "description": "Contract txid (64 hex chars)" }
+      },
+      "required": ["mnemonic", "contract_id"]
+    }
+  },
+  {
+    "name": "rill_submit_review",
+    "description": "Submit peer review for a completed contract (1-10 score)",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "mnemonic": { "type": "string", "description": "Reviewer's mnemonic" },
+        "subject": { "type": "string", "description": "Subject's address" },
+        "score": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Review score" },
+        "contract_id": { "type": "string", "description": "Related contract txid" }
+      },
+      "required": ["mnemonic", "subject", "score", "contract_id"]
+    }
+  }
+]
