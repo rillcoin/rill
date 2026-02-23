@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### 2026-02-23 - Agent Accessibility Bridge
+
+**AI agents can now discover and use RillCoin's Proof of Conduct from any platform.**
+
+#### Node RPC
+- `listAgentWallets(offset, limit)` — paginated agent directory with bech32m address reconstruction
+- `AgentDirectoryJson` / `AgentSummaryJson` response types
+
+#### Faucet API — 7 Agent Endpoints
+- `POST /api/agent/register` — build and broadcast AgentRegister tx from mnemonic
+- `GET /api/agent/profile?address=` — proxy to `getAgentConductProfile` RPC
+- `GET /api/agent/directory?offset=&limit=` — proxy to `listAgentWallets` RPC
+- `POST /api/agent/vouch` — build VouchFor tx
+- `POST /api/agent/contract/create` — build ContractCreate tx with escrow
+- `POST /api/agent/contract/fulfil` — build ContractFulfil tx
+- `POST /api/agent/review` — build PeerReview tx (score 1-10)
+- All endpoints rate-limited, JSON in/out, with shared tx-building helpers
+
+#### MCP Server — 6 New Agent Tools
+- `get_conduct_profile`, `register_agent`, `vouch_for_agent`
+- `create_contract`, `fulfil_contract`, `submit_review`
+- Server now has 16 total tools (10 existing + 6 agent)
+
+#### Discovery Protocol
+- `/.well-known/rill-agents.json` — machine-readable agent discovery metadata
+- `/.well-known/ai-plugin.json` — ChatGPT plugin manifest
+- `/api/openapi.json` — OpenAPI 3.0 spec for all 13 faucet endpoints
+
+#### Cross-Platform SDKs
+- `tools/rill-openai/functions.json` — OpenAI function calling schemas (7 operations)
+- `tools/rill-python-sdk/` — Python `rill-agent-sdk` with httpx client + LangChain tool adapters
+
+#### Stats
+- 946+ tests passing, 0 failures, 0 clippy warnings
+- ~2,200 lines added across 22 files
+- TypeScript MCP server compiles clean
+
 ### 2026-02-22 - Proof of Conduct (Phases 1-4)
 
 **AI agents now have on-chain identity and economic consequences on RillCoin.**
