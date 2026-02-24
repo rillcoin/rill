@@ -491,7 +491,7 @@ pub async fn register_agent_from_mnemonic(
     let client = rpc_client(rpc_endpoint)?;
 
     // Scan UTXOs for this wallet.
-    let all_utxos = scan_mnemonic_utxos(&client, wallet.keychain_mut()).await?;
+    let all_utxos = scan_wallet_utxos(&client, &mut wallet).await?;
     wallet.scan_utxos(&all_utxos);
 
     if wallet.utxo_count() == 0 {
@@ -623,7 +623,7 @@ where
 
     let client = rpc_client(rpc_endpoint)?;
 
-    let all_utxos = scan_mnemonic_utxos(&client, wallet.keychain_mut()).await?;
+    let all_utxos = scan_wallet_utxos(&client, &mut wallet).await?;
     wallet.scan_utxos(&all_utxos);
 
     if wallet.utxo_count() == 0 {
@@ -699,17 +699,24 @@ where
     broadcast_tx(&client, &tx).await
 }
 
-/// Scan UTXOs for a mnemonic-derived keychain (gap limit of 2).
-async fn scan_mnemonic_utxos(
+/// Scan UTXOs for a wallet (gap limit of 2).
+///
+/// Derives addresses on the wallet so that `owned_pubkey_hashes` is populated
+/// for subsequent `scan_utxos` calls.
+async fn scan_wallet_utxos(
     client: &jsonrpsee::http_client::HttpClient,
-    keychain: &mut rill_wallet::KeyChain,
+    wallet: &mut rill_wallet::Wallet,
 ) -> Result<Vec<(OutPoint, UtxoEntry)>> {
     let mut all_utxos: Vec<(OutPoint, UtxoEntry)> = Vec::new();
     let mut gap = 0u32;
     let mut index = 0u32;
 
     while gap < 2 {
-        let addr_str = keychain.address_at(index).encode();
+        // Derive via wallet.next_address() if needed, to populate owned_pubkey_hashes.
+        while wallet.address_count() <= index {
+            wallet.next_address();
+        }
+        let addr_str = wallet.keychain_mut().address_at(index).encode();
         let mut params = ArrayParams::new();
         params.insert(addr_str).unwrap();
 
