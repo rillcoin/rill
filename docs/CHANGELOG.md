@@ -34,6 +34,14 @@
 - `tools/rill-openai/functions.json` — OpenAI function calling schemas (7 operations)
 - `tools/rill-python-sdk/` — Python `rill-agent-sdk` with httpx client + LangChain tool adapters
 
+#### Testnet Deployment & E2E Verification
+- Deployed updated `rill-node` to both testnet nodes (node0 + node1)
+- Deployed updated `rill-faucet` with all 7 agent endpoints + discovery routes
+- Nginx config updated to proxy `/.well-known/` paths to faucet backend
+- E2E test passed: create wallet → fund → register agent → query profile → verify directory
+- Agent registered at block 2322: `wallet_type=agent`, `conduct_score=500`, `multiplier=15000`
+- Fixed UTXO scan bug: `scan_mnemonic_utxos` → `scan_wallet_utxos` (populate `owned_pubkey_hashes`)
+
 #### Stats
 - 946+ tests passing, 0 failures, 0 clippy warnings
 - ~2,200 lines added across 22 files
