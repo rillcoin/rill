@@ -40,6 +40,9 @@ dependencies = ["httpx>=0.25"]
 [project.optional-dependencies]
 langchain = ["langchain-core>=0.1"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["rill_agent"]
+
 [project.urls]
 Homepage = "https://rillcoin.com"
 Repository = "https://github.com/rillcoin/rill"
