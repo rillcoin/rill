@@ -1,14 +1,45 @@
 {
-  "name": "rill-mcp",
+  "name": "@rillcoin/mcp",
   "version": "0.1.0",
-  "description": "MCP server for interacting with the RillCoin blockchain",
+  "description": "MCP server for RillCoin — AI agent wallets, Proof of Conduct reputation, and concentration decay on L1",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "rill-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "agents",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "rillcoin",
+    "cryptocurrency",
+    "ai-agent",
+    "blockchain",
+    "proof-of-conduct",
+    "concentration-decay",
+    "web3",
+    "langchain",
+    "claude",
+    "llm-tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rillcoin/rill",
+    "directory": "tools/rill-mcp"
+  },
+  "homepage": "https://rillcoin.com",
+  "license": "MIT",
+  "author": "RillCoin <dev@rillcoin.com>",
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

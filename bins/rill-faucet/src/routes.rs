@@ -34,6 +34,8 @@ const CREATE_WALLET_HTML: &str = include_str!("static/create_wallet.html");
 const WELL_KNOWN_AGENTS: &str = include_str!("static/well-known-rill-agents.json");
 const AI_PLUGIN: &str = include_str!("static/ai-plugin.json");
 const OPENAPI_SPEC: &str = include_str!("static/openapi.json");
+const AGENT_PROTOCOL: &str = include_str!("static/well-known-agent.json");
+const ROBOTS_TXT: &str = include_str!("static/robots.txt");
 
 // ---------------------------------------------------------------------------
 // Router
@@ -67,6 +69,8 @@ pub fn router(state: AppState) -> Router {
         .route("/.well-known/rill-agents.json", get(well_known_agents))
         .route("/.well-known/ai-plugin.json", get(ai_plugin))
         .route("/api/openapi.json", get(openapi_spec))
+        .route("/.well-known/agent.json", get(agent_protocol))
+        .route("/robots.txt", get(robots_txt))
         .with_state(state)
         .layer(cors)
 }
@@ -529,6 +533,22 @@ async fn openapi_spec() -> impl IntoResponse {
     (
         [("content-type", "application/json")],
         OPENAPI_SPEC,
+    )
+}
+
+/// `GET /.well-known/agent.json` — Agent Protocol discovery manifest.
+async fn agent_protocol() -> impl IntoResponse {
+    (
+        [("content-type", "application/json")],
+        AGENT_PROTOCOL,
+    )
+}
+
+/// `GET /robots.txt` — crawl directives with AI agent hints.
+async fn robots_txt() -> impl IntoResponse {
+    (
+        [("content-type", "text/plain")],
+        ROBOTS_TXT,
     )
 }
 

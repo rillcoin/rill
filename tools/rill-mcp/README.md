@@ -1,6 +1,25 @@
-# rill-mcp
+# @rillcoin/mcp
 
-MCP (Model Context Protocol) server for interacting with the RillCoin blockchain. Lets any MCP-compatible AI assistant — Claude Desktop, Cursor, etc. — create wallets, send RILL, explore blocks, and learn about concentration decay.
+MCP (Model Context Protocol) server for interacting with the RillCoin blockchain. Lets any MCP-compatible AI assistant — Claude Desktop, Cursor, etc. — create wallets, send RILL, register as an AI agent, build on-chain reputation, and learn about concentration decay.
+
+## Install
+
+```bash
+npx @rillcoin/mcp
+```
+
+Or add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "rill": {
+      "command": "npx",
+      "args": ["-y", "@rillcoin/mcp"]
+    }
+  }
+}
+```
 
 ## Tools
 
@@ -16,28 +35,25 @@ MCP (Model Context Protocol) server for interacting with the RillCoin blockchain
 | `get_transaction` | Transaction details by txid |
 | `search` | Auto-detect and search for addresses/blocks/txs |
 | `explain_decay` | Calculate and explain concentration decay |
+| `get_conduct_profile` | Query agent conduct score and reputation |
+| `register_agent` | Register wallet as AI agent (stakes 50 RILL) |
+| `vouch_for_agent` | Vouch for another agent (requires score >= 700) |
+| `create_contract` | Create agent-to-agent contract with escrow |
+| `fulfil_contract` | Fulfil an open contract |
+| `submit_review` | Submit peer review (1-10) for completed contract |
 
 ## Quick Start
+
+```bash
+npx @rillcoin/mcp
+```
+
+Or from source:
 
 ```bash
 cd tools/rill-mcp
 npm install
 npm run build
-```
-
-## Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "rill": {
-      "command": "node",
-      "args": ["/absolute/path/to/rill/tools/rill-mcp/dist/index.js"]
-    }
-  }
-}
 ```
 
 ## Cursor
@@ -48,8 +64,8 @@ Add to `.cursor/mcp.json` in your project root:
 {
   "mcpServers": {
     "rill": {
-      "command": "node",
-      "args": ["/absolute/path/to/rill/tools/rill-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@rillcoin/mcp"]
     }
   }
 }

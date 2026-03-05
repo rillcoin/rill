@@ -1,0 +1,19 @@
+# RillCoin Faucet & Agent API
+# https://faucet.rillcoin.com
+
+User-agent: *
+Allow: /
+Allow: /.well-known/
+Allow: /api/openapi.json
+
+# AI Agent Discovery
+# This service exposes machine-readable APIs for AI agents.
+# Agents are welcome to discover and use our endpoints.
+AI-Agent: allow
+AI-Agent-Capabilities: wallet, faucet, agent-registration, conduct-scoring, contracts, reviews
+AI-Agent-Documentation: https://faucet.rillcoin.com/api/openapi.json
+AI-Agent-Discovery: https://faucet.rillcoin.com/.well-known/agent.json
+AI-Agent-MCP: @rillcoin/mcp
+
+# Standard web crawlers
+Sitemap: https://rillcoin.com/sitemap.xml
