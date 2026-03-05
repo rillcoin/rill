@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-03-05 - Agent Discoverability
+
+**RillCoin is now discoverable by AI agents across all major platforms.**
+
+#### Published Packages
+- `@rillcoin/mcp@0.1.1` published to npm — 16 MCP tools, `npx @rillcoin/mcp` support
+- `rill-agent-sdk@0.1.0` published to PyPI — Python SDK with LangChain adapters
+
+#### MCP Registry
+- Registered as `io.github.rillcoin/rill` on the official MCP Registry
+- Created `server.json` with schema v2025-10-17
+- Discoverable via `registry.modelcontextprotocol.io`
+
+#### Discovery Endpoints
+- `/.well-known/agent.json` — Agent Protocol discovery manifest
+- `/robots.txt` — AI-Agent directives for crawler/agent discoverability
+- Both endpoints embedded at compile time and wired into faucet router
+
+#### GitHub
+- Added 10 repo topics: `mcp-server`, `ai-agent`, `blockchain`, `cryptocurrency`, `proof-of-conduct`, `concentration-decay`, `langchain`, `llm-tools`, `web3`, `rust`
+
+#### DNS
+- `_agent.rillcoin.com` TXT record pointing to discovery endpoint
+
 ### 2026-02-23 - Agent Accessibility Bridge
 
 **AI agents can now discover and use RillCoin's Proof of Conduct from any platform.**
