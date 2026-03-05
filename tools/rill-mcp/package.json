@@ -1,6 +1,7 @@
 {
   "name": "@rillcoin/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "mcpName": "io.github.rillcoin/rill",
   "description": "MCP server for RillCoin — AI agent wallets, Proof of Conduct reputation, and concentration decay on L1",
   "type": "module",
   "main": "dist/index.js",

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.rillcoin/rill",
+  "title": "RillCoin",
+  "description": "AI agent wallets, Proof of Conduct reputation, and concentration decay on L1",
+  "repository": {
+    "url": "https://github.com/rillcoin/rill",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@rillcoin/mcp",
+      "version": "0.1.1",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Faucet API base URL",
+          "isRequired": false,
+          "name": "RILL_FAUCET_URL"
+        },
+        {
+          "description": "Explorer API base URL",
+          "isRequired": false,
+          "name": "RILL_EXPLORER_URL"
+        }
+      ]
+    }
+  ]
+}
