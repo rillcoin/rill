@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### 2026-04-09 - UTXO Cluster Indexing
+
+**Concentration decay can now detect ownership clusters — the core differentiator is live.**
+
+Previously all UTXOs had `cluster_id = Hash256::ZERO`, meaning concentration was always below threshold and no decay ever occurred. Cluster indexing enables the decay algorithm to track aggregate balances per ownership lineage.
+
+#### rill-core
+- New `cluster` module: extracted `determine_output_cluster()` from rill-decay for dependency-safe use by `MemoryChainStore`
+- `MemoryChainStore` now tracks `cluster_balances` (HashMap) and `circulating_supply`
+- `BlockUndo` stores cluster balance deltas for disconnect/reorg support
+- `spend_inputs()` returns input cluster IDs; `create_outputs()` computes proper cluster IDs via `determine_output_cluster()`
+- `connect_block()` atomically applies cluster balance deltas
+- `disconnect_tip()` fully reverses cluster deltas and supply changes
+- Public accessors: `cluster_balance()`, `circulating_supply()`
+
+#### rill-decay
+- `determine_output_cluster()` re-exported from `rill_core::cluster` (canonical location)
+- `lineage_factor()` and `lineage_adjusted_balance()` remain in rill-decay
+
+#### rill-consensus
+- `compute_block_decay()` method on `ConsensusEngine`: post-validation pass that computes total decay per block from cluster concentrations
+- Uses u128 intermediates for overflow-safe concentration calculation
+
+#### Tests
+- 6 new cluster tests: creation, inheritance, merge, supply tracking, disconnect reversal, balance conservation
+- 877+ tests passing, 0 failures, 0 clippy warnings
+
 ### 2026-03-05 - Agent Discoverability
 
 **RillCoin is now discoverable by AI agents across all major platforms.**
