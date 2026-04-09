@@ -6,6 +6,7 @@ pub mod agent;
 pub mod conduct;
 pub mod block_validation;
 pub mod chain_state;
+pub mod cluster;
 pub mod constants;
 pub mod crypto;
 pub mod difficulty;

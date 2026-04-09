@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 
+use crate::cluster::determine_output_cluster;
 use crate::error::{ChainStateError, RillError};
 use crate::types::{Block, BlockHeader, Hash256, OutPoint, Transaction, UtxoEntry};
 
@@ -39,6 +40,8 @@ pub struct DisconnectBlockResult {
 struct BlockUndo {
     /// Spent UTXOs in the order they were consumed.
     spent_utxos: Vec<(OutPoint, UtxoEntry)>,
+    /// Cluster balance deltas applied by this block (for reversal on disconnect).
+    cluster_deltas: Vec<(Hash256, i128)>,
 }
 
 /// Mutable chain state storage interface.
@@ -130,6 +133,10 @@ pub struct MemoryChainStore {
     tip_height: u64,
     /// Current tip block hash. `Hash256::ZERO` means empty chain.
     tip_hash: Hash256,
+    /// Aggregate balance per cluster ID. Used for concentration calculation.
+    cluster_balances: HashMap<Hash256, u64>,
+    /// Total supply in circulation (sum of all coinbase outputs connected).
+    circulating_supply: u64,
 }
 
 impl MemoryChainStore {
@@ -143,6 +150,8 @@ impl MemoryChainStore {
             undo_data: HashMap::new(),
             tip_height: 0,
             tip_hash: Hash256::ZERO,
+            cluster_balances: HashMap::new(),
+            circulating_supply: 0,
         }
     }
 
@@ -156,10 +165,21 @@ impl MemoryChainStore {
         self.undo_data.len()
     }
 
+    /// Get the aggregate balance of a cluster.
+    pub fn cluster_balance(&self, cluster_id: &Hash256) -> u64 {
+        self.cluster_balances.get(cluster_id).copied().unwrap_or(0)
+    }
+
+    /// Get the current circulating supply.
+    pub fn circulating_supply(&self) -> u64 {
+        self.circulating_supply
+    }
+
     /// Process a transaction's inputs: remove spent UTXOs, record undo data.
     ///
     /// Coinbase transactions are skipped (no real inputs to spend).
-    /// Returns the number of UTXOs spent, or an error if a UTXO is missing.
+    /// Returns `(utxos_spent, input_cluster_ids)`. The cluster IDs are used
+    /// by the caller to compute the output cluster.
     ///
     /// VULN-02 fix: This now returns an error if any non-coinbase input's UTXO
     /// is not found, preventing phantom spends during reorgs.
@@ -167,34 +187,42 @@ impl MemoryChainStore {
         &mut self,
         tx: &Transaction,
         undo: &mut BlockUndo,
-    ) -> Result<usize, RillError> {
+        cluster_deltas: &mut HashMap<Hash256, i128>,
+    ) -> Result<(usize, Vec<Hash256>), RillError> {
         if tx.is_coinbase() {
-            return Ok(0);
+            return Ok((0, Vec::new()));
         }
         let mut spent = 0;
+        let mut input_cluster_ids = Vec::with_capacity(tx.inputs.len());
         for input in &tx.inputs {
             let entry = self.utxos.remove(&input.previous_output).ok_or_else(|| {
                 RillError::ChainState(ChainStateError::MissingUtxo(
                     input.previous_output.to_string(),
                 ))
             })?;
+            // Subtract from the spent UTXO's cluster balance
+            *cluster_deltas.entry(entry.cluster_id).or_insert(0) -= entry.output.value as i128;
+            input_cluster_ids.push(entry.cluster_id);
             undo.spent_utxos.push((input.previous_output.clone(), entry));
             spent += 1;
         }
-        Ok(spent)
+        Ok((spent, input_cluster_ids))
     }
 
-    /// Process a transaction's outputs: create new UTXOs.
+    /// Process a transaction's outputs: create new UTXOs with proper cluster IDs.
     ///
-    /// Returns the number of UTXOs created, or an error if txid
-    /// computation fails.
+    /// `input_cluster_ids` are the cluster IDs from spent inputs (empty for coinbase).
+    /// Returns the number of UTXOs created.
     fn create_outputs(
         &mut self,
         tx: &Transaction,
         height: u64,
+        input_cluster_ids: &[Hash256],
+        cluster_deltas: &mut HashMap<Hash256, i128>,
     ) -> Result<usize, RillError> {
         let txid = tx.txid().map_err(RillError::from)?;
         let is_coinbase = tx.is_coinbase();
+        let output_cluster_id = determine_output_cluster(input_cluster_ids, &txid);
         let mut created = 0;
         for (index, output) in tx.outputs.iter().enumerate() {
             let outpoint = OutPoint {
@@ -205,8 +233,10 @@ impl MemoryChainStore {
                 output: output.clone(),
                 block_height: height,
                 is_coinbase,
-                cluster_id: Hash256::ZERO, // Phase 1: no clustering
+                cluster_id: output_cluster_id,
             };
+            // Add to the output cluster's balance
+            *cluster_deltas.entry(output_cluster_id).or_insert(0) += output.value as i128;
             self.utxos.insert(outpoint, entry);
             created += 1;
         }
@@ -244,15 +274,40 @@ impl ChainStore for MemoryChainStore {
             return Err(ChainStateError::DuplicateBlock(block_hash.to_string()).into());
         }
 
-        let mut undo = BlockUndo { spent_utxos: Vec::new() };
+        let mut undo = BlockUndo { spent_utxos: Vec::new(), cluster_deltas: Vec::new() };
         let mut total_spent = 0;
         let mut total_created = 0;
+        let mut cluster_deltas: HashMap<Hash256, i128> = HashMap::new();
 
         // Process transactions: spend inputs, then create outputs.
         for tx in &block.transactions {
-            total_spent += self.spend_inputs(tx, &mut undo)?;
-            total_created += self.create_outputs(tx, height)?;
+            let (spent, input_cluster_ids) = self.spend_inputs(tx, &mut undo, &mut cluster_deltas)?;
+            total_spent += spent;
+            total_created += self.create_outputs(tx, height, &input_cluster_ids, &mut cluster_deltas)?;
+
+            // Track circulating supply from coinbase outputs.
+            if tx.is_coinbase() {
+                for output in &tx.outputs {
+                    self.circulating_supply = self.circulating_supply.saturating_add(output.value);
+                }
+            }
         }
+
+        // Apply cluster balance deltas atomically.
+        for (&cluster_id, &delta) in &cluster_deltas {
+            let balance = self.cluster_balances.entry(cluster_id).or_insert(0);
+            if delta >= 0 {
+                *balance = balance.saturating_add(delta as u64);
+            } else {
+                *balance = balance.saturating_sub((-delta) as u64);
+            }
+            if *balance == 0 {
+                self.cluster_balances.remove(&cluster_id);
+            }
+        }
+
+        // Store cluster deltas in undo data for disconnect.
+        undo.cluster_deltas = cluster_deltas.into_iter().collect();
 
         // Store block, header, height mapping, undo data.
         self.headers.insert(block_hash, block.header.clone());
@@ -306,6 +361,29 @@ impl ChainStore for MemoryChainStore {
         let total_restored = undo.spent_utxos.len();
         for (outpoint, entry) in undo.spent_utxos {
             self.utxos.insert(outpoint, entry);
+        }
+
+        // Reverse cluster balance deltas.
+        for (cluster_id, delta) in &undo.cluster_deltas {
+            let balance = self.cluster_balances.entry(*cluster_id).or_insert(0);
+            // Reverse: subtract what was added, add what was subtracted.
+            if *delta >= 0 {
+                *balance = balance.saturating_sub(*delta as u64);
+            } else {
+                *balance = balance.saturating_add((-delta) as u64);
+            }
+            if *balance == 0 {
+                self.cluster_balances.remove(cluster_id);
+            }
+        }
+
+        // Reverse circulating supply from coinbase outputs.
+        for tx in &block.transactions {
+            if tx.is_coinbase() {
+                for output in &tx.outputs {
+                    self.circulating_supply = self.circulating_supply.saturating_sub(output.value);
+                }
+            }
         }
 
         // Remove block from height index.
@@ -1019,7 +1097,8 @@ mod tests {
         assert_eq!(entry.output.pubkey_hash, pkh(0xAA));
         assert_eq!(entry.block_height, 0);
         assert!(entry.is_coinbase);
-        assert_eq!(entry.cluster_id, Hash256::ZERO);
+        // Coinbase cluster ID = txid (new cluster per coinbase)
+        assert_eq!(entry.cluster_id, cb_txid);
     }
 
     #[test]
@@ -1305,6 +1384,185 @@ mod tests {
         assert_eq!(
             store.get_utxo(&OutPoint { txid: cb_txid, index: 1 }).unwrap().unwrap().output.value,
             20 * COIN,
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Cluster tracking
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn coinbase_creates_cluster_with_txid() {
+        let mut store = MemoryChainStore::new();
+        let cb = make_coinbase_unique(50 * COIN, pkh(0xAA), 0);
+        let cb_txid = cb.txid().unwrap();
+        let block = make_block(Hash256::ZERO, 1_000_000, vec![cb]);
+        store.connect_block(&block, 0).unwrap();
+
+        let entry = store.get_utxo(&OutPoint { txid: cb_txid, index: 0 }).unwrap().unwrap();
+        assert_eq!(entry.cluster_id, cb_txid, "coinbase cluster_id should be txid");
+        assert_eq!(store.cluster_balance(&cb_txid), 50 * COIN);
+    }
+
+    #[test]
+    fn spend_inherits_cluster_from_input() {
+        let mut store = MemoryChainStore::new();
+
+        let cb0 = make_coinbase_unique(50 * COIN, pkh(0xAA), 0);
+        let cb0_txid = cb0.txid().unwrap();
+        let block0 = make_block(Hash256::ZERO, 1_000_000, vec![cb0]);
+        let hash0 = block0.header.hash();
+        store.connect_block(&block0, 0).unwrap();
+
+        // Spend coinbase: output inherits its cluster.
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let spend = make_tx(
+            &[OutPoint { txid: cb0_txid, index: 0 }],
+            49 * COIN,
+            pkh(0xCC),
+        );
+        let spend_txid = spend.txid().unwrap();
+        let block1 = make_block(hash0, 1_000_060, vec![cb1, spend]);
+        store.connect_block(&block1, 1).unwrap();
+
+        let entry = store.get_utxo(&OutPoint { txid: spend_txid, index: 0 }).unwrap().unwrap();
+        assert_eq!(entry.cluster_id, cb0_txid, "spend output should inherit input cluster");
+        // Cluster balance: -50 (spent) + 49 (created) = 49 RILL
+        assert_eq!(store.cluster_balance(&cb0_txid), 49 * COIN);
+    }
+
+    #[test]
+    fn multi_cluster_merge() {
+        let mut store = MemoryChainStore::new();
+
+        // Block 0: coinbase with 2 outputs → same cluster.
+        let cb0 = Transaction {
+            version: 1,
+            tx_type: TxType::default(),
+            inputs: vec![TxInput {
+                previous_output: OutPoint::null(),
+                signature: vec![],
+                public_key: vec![],
+            }],
+            outputs: vec![
+                TxOutput { value: 30 * COIN, pubkey_hash: pkh(0xAA) },
+                TxOutput { value: 20 * COIN, pubkey_hash: pkh(0xBB) },
+            ],
+            lock_time: 0,
+        };
+        let cb0_txid = cb0.txid().unwrap();
+        let block0 = make_block(Hash256::ZERO, 1_000_000, vec![cb0]);
+        let hash0 = block0.header.hash();
+        store.connect_block(&block0, 0).unwrap();
+
+        // Block 1: separate coinbase → different cluster.
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xCC), 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let block1 = make_block(hash0, 1_000_060, vec![cb1]);
+        let hash1 = block1.header.hash();
+        store.connect_block(&block1, 1).unwrap();
+
+        assert_ne!(cb0_txid, cb1_txid, "different coinbases = different clusters");
+
+        // Block 2: tx spending from both clusters → merge.
+        let cb2 = make_coinbase_unique(50 * COIN, pkh(0xDD), 2);
+        let merge_tx = make_tx(
+            &[
+                OutPoint { txid: cb0_txid, index: 0 },
+                OutPoint { txid: cb1_txid, index: 0 },
+            ],
+            79 * COIN,
+            pkh(0xEE),
+        );
+        let merge_txid = merge_tx.txid().unwrap();
+        let block2 = make_block(hash1, 1_000_120, vec![cb2, merge_tx]);
+        store.connect_block(&block2, 2).unwrap();
+
+        let merged_entry = store.get_utxo(&OutPoint { txid: merge_txid, index: 0 }).unwrap().unwrap();
+        // Merged cluster is neither of the originals.
+        assert_ne!(merged_entry.cluster_id, cb0_txid);
+        assert_ne!(merged_entry.cluster_id, cb1_txid);
+        // Merged cluster has the output value.
+        assert_eq!(store.cluster_balance(&merged_entry.cluster_id), 79 * COIN);
+        // Original clusters still have their remaining balances.
+        assert_eq!(store.cluster_balance(&cb0_txid), 20 * COIN); // 50 - 30 spent
+        assert_eq!(store.cluster_balance(&cb1_txid), 0); // 50 - 50 spent, cleaned up
+    }
+
+    #[test]
+    fn circulating_supply_tracks_coinbases() {
+        let mut store = MemoryChainStore::new();
+        assert_eq!(store.circulating_supply(), 0);
+
+        let cb0 = make_coinbase_unique(50 * COIN, pkh(0xAA), 0);
+        let block0 = make_block(Hash256::ZERO, 1_000_000, vec![cb0]);
+        let hash0 = block0.header.hash();
+        store.connect_block(&block0, 0).unwrap();
+        assert_eq!(store.circulating_supply(), 50 * COIN);
+
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let block1 = make_block(hash0, 1_000_060, vec![cb1]);
+        store.connect_block(&block1, 1).unwrap();
+        assert_eq!(store.circulating_supply(), 100 * COIN);
+    }
+
+    #[test]
+    fn disconnect_reverses_cluster_balances() {
+        let mut store = MemoryChainStore::new();
+
+        let cb0 = make_coinbase_unique(50 * COIN, pkh(0xAA), 0);
+        let cb0_txid = cb0.txid().unwrap();
+        let block0 = make_block(Hash256::ZERO, 1_000_000, vec![cb0]);
+        let hash0 = block0.header.hash();
+        store.connect_block(&block0, 0).unwrap();
+
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let cb1_txid = cb1.txid().unwrap();
+        let spend = make_tx(
+            &[OutPoint { txid: cb0_txid, index: 0 }],
+            49 * COIN,
+            pkh(0xCC),
+        );
+        let block1 = make_block(hash0, 1_000_060, vec![cb1, spend]);
+        store.connect_block(&block1, 1).unwrap();
+
+        // After block 1: cluster cb0 has 49 RILL, cluster cb1 has 50 RILL.
+        assert_eq!(store.cluster_balance(&cb0_txid), 49 * COIN);
+        assert_eq!(store.cluster_balance(&cb1_txid), 50 * COIN);
+        assert_eq!(store.circulating_supply(), 100 * COIN);
+
+        // Disconnect block 1: revert to just block 0 state.
+        store.disconnect_tip().unwrap();
+        assert_eq!(store.cluster_balance(&cb0_txid), 50 * COIN);
+        assert_eq!(store.cluster_balance(&cb1_txid), 0);
+        assert_eq!(store.circulating_supply(), 50 * COIN);
+    }
+
+    #[test]
+    fn cluster_balance_conservation() {
+        // Total cluster balances should equal circulating supply.
+        let mut store = MemoryChainStore::new();
+
+        let cb0 = make_coinbase_unique(50 * COIN, pkh(0xAA), 0);
+        let cb0_txid = cb0.txid().unwrap();
+        let block0 = make_block(Hash256::ZERO, 1_000_000, vec![cb0]);
+        let hash0 = block0.header.hash();
+        store.connect_block(&block0, 0).unwrap();
+
+        let cb1 = make_coinbase_unique(50 * COIN, pkh(0xBB), 1);
+        let spend = make_tx_multi_out(
+            &[OutPoint { txid: cb0_txid, index: 0 }],
+            &[(20 * COIN, pkh(0xCC)), (29 * COIN, pkh(0xDD))],
+        );
+        let block1 = make_block(hash0, 1_000_060, vec![cb1, spend]);
+        store.connect_block(&block1, 1).unwrap();
+
+        // Sum of all cluster balances should equal circulating supply.
+        let total_cluster_balance: u64 = store.cluster_balances.values().sum();
+        assert_eq!(
+            total_cluster_balance,
+            store.circulating_supply() - COIN, // 1 RILL fee (50 - 20 - 29 = 1)
+            "cluster balances should account for all circulating supply minus fees"
         );
     }
 }

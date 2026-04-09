@@ -442,7 +442,63 @@ impl BlockProducer for ConsensusEngine {
             cs.get_utxo(outpoint).ok().flatten()
         })?;
 
+        // Post-validation: compute total decay for this block's spent UTXOs.
+        // This accumulates the decay that should flow into the decay pool.
+        let _total_decay = self.compute_block_decay(block, height);
+
         Ok(())
+    }
+}
+
+impl ConsensusEngine {
+    /// Compute the total decay amount for a block's non-coinbase transactions.
+    ///
+    /// For each spent UTXO, looks up its cluster balance to determine
+    /// concentration, then computes how much value has decayed based on
+    /// how long the UTXO was held. Returns the sum of all decay amounts.
+    ///
+    /// Returns 0 if circulating supply is zero or if any lookup fails.
+    fn compute_block_decay(&self, block: &Block, height: u64) -> u64 {
+        let supply = match self.chain_state.circulating_supply() {
+            Ok(s) if s > 0 => s,
+            _ => return 0,
+        };
+
+        let mut total_decay: u64 = 0;
+
+        for tx in &block.transactions {
+            if tx.is_coinbase() {
+                continue;
+            }
+            for input in &tx.inputs {
+                let utxo = match self.chain_state.get_utxo(&input.previous_output) {
+                    Ok(Some(u)) => u,
+                    _ => continue,
+                };
+
+                let cluster_bal = self
+                    .chain_state
+                    .cluster_balance(&utxo.cluster_id)
+                    .unwrap_or(0);
+
+                // concentration_ppb = cluster_balance * 10^9 / supply
+                // Use u128 to prevent overflow.
+                let concentration_ppb = (cluster_bal as u128
+                    * rill_core::constants::CONCENTRATION_PRECISION as u128
+                    / supply as u128) as u64;
+
+                let blocks_held = height.saturating_sub(utxo.block_height);
+
+                if let Ok(decay) =
+                    self.decay
+                        .compute_decay(utxo.output.value, concentration_ppb, blocks_held)
+                {
+                    total_decay = total_decay.saturating_add(decay);
+                }
+            }
+        }
+
+        total_decay
     }
 }
 

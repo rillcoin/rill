@@ -10,34 +10,9 @@
 //!    full reset after [`LINEAGE_FULL_RESET`] blocks.
 
 use rill_core::constants::{CONCENTRATION_PRECISION, LINEAGE_FULL_RESET, LINEAGE_HALF_LIFE};
-use rill_core::types::Hash256;
 
-/// Determine the cluster ID for outputs of a transaction.
-///
-/// - Coinbase (empty `input_cluster_ids`): new cluster derived from `txid`.
-/// - Single input cluster: outputs inherit that cluster.
-/// - Multiple input clusters: deterministic merge via BLAKE3 hash of sorted IDs.
-pub fn determine_output_cluster(input_cluster_ids: &[Hash256], txid: &Hash256) -> Hash256 {
-    if input_cluster_ids.is_empty() {
-        return *txid;
-    }
-
-    // Deduplicate and sort for determinism
-    let mut unique: Vec<Hash256> = input_cluster_ids.to_vec();
-    unique.sort();
-    unique.dedup();
-
-    if unique.len() == 1 {
-        return unique[0];
-    }
-
-    // Multiple clusters: merge by hashing sorted cluster IDs
-    let mut hasher = blake3::Hasher::new();
-    for id in &unique {
-        hasher.update(id.as_bytes());
-    }
-    Hash256(hasher.finalize().into())
-}
+// Re-export from rill-core where the canonical implementation now lives.
+pub use rill_core::cluster::determine_output_cluster;
 
 /// Compute the lineage factor for a UTXO held for `blocks_held` blocks.
 ///
@@ -87,6 +62,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     use rill_core::constants::{COIN, MAX_SUPPLY};
+    use rill_core::types::Hash256;
 
     fn test_hash(val: u8) -> Hash256 {
         Hash256([val; 32])
